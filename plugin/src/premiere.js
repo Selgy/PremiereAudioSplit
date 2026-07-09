@@ -94,41 +94,104 @@ const Premiere = (() => {
     return await entry.read({ format: uxp.storage.formats.binary });
   }
 
-  /*
-   * Importe un WAV produit par le backend dans le projet et l'ajoute sur une
-   * nouvelle piste audio, calé au point d'entrée d'origine.
-   * @param {string} wavPath   chemin absolu du stem (renvoyé par le backend)
-   * @param {any} inPoint      TickTime du point d'entrée d'origine
-   * @param {boolean} muteOriginal
-   */
-  async function importStem(wavPath, inPoint, muteOriginal) {
-    const { project, seq } = await getActiveSequence();
-
-    // TODO(verify): API d'import — project.importFiles([...]) renvoie les
-    // ProjectItem importés, ou il faut ensuite les retrouver par nom.
-    const imported = await project.importFiles(
-      [wavPath],
-      /* suppressUI */ true,
-      /* targetBin */ await project.getRootItem?.()
-    );
-    const item = Array.isArray(imported) ? imported[0] : imported;
-
-    // TODO(verify): insertion sur une piste audio à inPoint.
-    // Piste audio cible : ajoute une nouvelle piste puis overwrite/insert.
-    // seq.audioTracks[...] + track.insertClip(item, inPoint) selon API.
-    AppLog.info("Stem importé :", wavPath);
-
-    if (muteOriginal) {
-      // TODO(verify): muter la piste audio source.
-      AppLog.info("(option) muter l'audio d'origine — à câbler selon API pistes.");
+  /* Trouve le clip audio SÉLECTIONNÉ (scan des pistes) + son index de piste. */
+  async function findSelectedAudioClip(seq) {
+    const CLIP =
+      (ppro.Constants &&
+        ppro.Constants.TrackItemType &&
+        ppro.Constants.TrackItemType.CLIP) != null
+        ? ppro.Constants.TrackItemType.CLIP
+        : 1;
+    const count = await seq.getAudioTrackCount();
+    for (let i = 0; i < count; i++) {
+      const track = await seq.getAudioTrack(i);
+      const items = await track.getTrackItems(CLIP, false);
+      for (const it of items) {
+        if (await it.getIsSelected()) return { clip: it, trackIndex: i };
+      }
     }
+    return null;
+  }
 
-    return item;
+  /*
+   * Importe un fichier dans le projet et renvoie le ProjectItem créé.
+   * importFiles renvoie un booléen -> on retrouve l'item par diff du bin racine.
+   */
+  async function importWav(project, wavPath) {
+    const root = await project.getRootItem();
+    const before = new Set();
+    for (const it of await root.getItems()) before.add(it.getId());
+
+    const ok = await project.importFiles([wavPath], true, root, false);
+    if (!ok) throw new Error("importFiles a échoué : " + wavPath);
+
+    for (const it of await root.getItems()) {
+      if (!before.has(it.getId())) return it;
+    }
+    throw new Error("ProjectItem importé introuvable : " + wavPath);
+  }
+
+  /*
+   * Importe les stems et les place sur de NOUVELLES pistes audio (créées en bas
+   * pour ne rien écraser), calés à `atTime`. Mute le clip sélectionné si demandé.
+   * Le tout dans une seule transaction annulable (Ctrl+Z).
+   *
+   * @param {Record<string,string>} files  { vocals?:path, no_vocals?:path }
+   * @param {any} atTime                    TickTime de placement (point d'entrée)
+   * @param {boolean} muteOriginal
+   * @param {string[]} order                ordre des stems à placer
+   */
+  async function placeStems(files, atTime, muteOriginal, order) {
+    const { project, seq } = await getActiveSequence();
+    const selected = await findSelectedAudioClip(seq);
+
+    // Nouvelles pistes en bas : index >= nb de pistes => créées automatiquement.
+    const base = await seq.getAudioTrackCount();
+
+    // Import (async) AVANT la transaction : on a besoin des ProjectItem.
+    const toPlace = [];
+    let offset = 0;
+    for (const key of order) {
+      const p = files && files[key];
+      if (!p) continue;
+      const item = await importWav(project, p);
+      toPlace.push({ key, item, audioTrackIndex: base + offset });
+      offset++;
+    }
+    if (toPlace.length === 0) throw new Error("Aucun stem à placer.");
+
+    const editor = await ppro.SequenceEditor.getEditor(seq);
+
+    const ok = project.executeTransaction((compound) => {
+      for (const { item, audioTrackIndex } of toPlace) {
+        // (projectItem, time, videoTrackIndex, audioTrackIndex)
+        const action = editor.createOverwriteItemAction(
+          item,
+          atTime,
+          0,
+          audioTrackIndex
+        );
+        compound.addAction(action);
+      }
+      if (muteOriginal && selected) {
+        compound.addAction(selected.clip.createSetDisabledAction(true));
+      }
+    });
+
+    AppLog.info(
+      `Placé ${toPlace.length} stem(s) sur pistes audio ${base + 1}+.`,
+      muteOriginal && selected
+        ? "Clip sélectionné muté."
+        : selected
+        ? ""
+        : "(aucun clip sélectionné -> pas de mute)"
+    );
+    return { ok, placed: toPlace.length, muted: !!(muteOriginal && selected) };
   }
 
   return {
     exportSection,
-    importStem,
+    placeStems,
     readFileBytes,
     getActiveSequence,
     tempFolder,

@@ -137,10 +137,7 @@
       const muteOriginal = !!els.mute.checked;
       const wanted =
         stems === "both" ? ["vocals", "no_vocals"] : [stems];
-      for (const key of wanted) {
-        const p = result.files && result.files[key];
-        if (p) await Premiere.importStem(p, inPoint, muteOriginal && key === "vocals");
-      }
+      await Premiere.placeStems(result.files, inPoint, muteOriginal, wanted);
 
       setBusy(false, "✅ Terminé. Stem(s) ajouté(s) à la timeline.");
       els.progress.setAttribute("indeterminate", "");
