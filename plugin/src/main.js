@@ -21,6 +21,19 @@
     els.installCard.style.display = show ? "flex" : "none";
   }
 
+  // sp-picker/sp-checkbox ne reflètent pas toujours .value/.checked sans
+  // interaction : on lit propriété -> attribut -> défaut.
+  function readStem() {
+    const el = els.stem;
+    const v = (el && (el.value || el.getAttribute("value"))) || "vocals";
+    return ["vocals", "no_vocals", "both"].includes(v) ? v : "vocals";
+  }
+  function readMute() {
+    const el = els.mute;
+    if (el && el.checked !== undefined && el.checked !== null) return !!el.checked;
+    return el ? el.hasAttribute("checked") : false;
+  }
+
   let backendReady = false;
 
   function setBackendState(state, label) {
@@ -126,7 +139,7 @@
       const bytes = await Premiere.readFileBytes(file);
 
       setBusy(true, "3/4 — Séparation voix / bruit…");
-      const stems = els.stem.value;
+      const stems = readStem();
       const result = await Backend.separate(bytes, file.name, stems, (pct, msg) => {
         els.progress.removeAttribute("indeterminate");
         els.progress.value = pct;
@@ -134,7 +147,7 @@
       });
 
       setBusy(true, "4/4 — Réimport dans la timeline…");
-      const muteOriginal = !!els.mute.checked;
+      const muteOriginal = readMute();
       const wanted =
         stems === "both" ? ["vocals", "no_vocals"] : [stems];
       await Premiere.placeStems(result.files, inPoint, muteOriginal, wanted);
