@@ -3,48 +3,57 @@
  * export -> séparation -> réimport.
  */
 (() => {
+  const byId = (id) => document.getElementById(id);
   const els = {
-    check: document.getElementById("btn-check"),
-    run: document.getElementById("btn-run"),
-    stem: document.getElementById("stem-select"),
-    mute: document.getElementById("mute-original"),
-    status: document.getElementById("backend-status"),
-    statusLabel: document.getElementById("backend-label"),
-    statusText: document.getElementById("status-text"),
-    progress: document.getElementById("progress"),
-    installCard: document.getElementById("install-card"),
-    install: document.getElementById("btn-install"),
-    installHelp: document.getElementById("install-help"),
+    check: byId("btn-check"),
+    run: byId("btn-run"),
+    stemSeg: byId("stem-select"),
+    muteToggle: byId("mute-toggle"),
+    statusPill: byId("backend-status"),
+    statusLabel: byId("backend-label"),
+    statusText: byId("status-text"),
+    progress: byId("progress"),
+    progressBar: document.querySelector("#progress .bar"),
+    installCard: byId("install-card"),
+    install: byId("btn-install"),
+    installHelp: byId("install-help"),
+    logToggle: byId("log-toggle"),
+    log: byId("log"),
   };
 
   function showInstallCard(show) {
     els.installCard.style.display = show ? "flex" : "none";
   }
 
-  // sp-picker/sp-checkbox ne reflètent pas toujours .value/.checked sans
-  // interaction : on lit propriété -> attribut -> défaut.
+  // Contrôle segmenté : la valeur = data-value du bouton actif.
   function readStem() {
-    const el = els.stem;
-    const v = (el && (el.value || el.getAttribute("value"))) || "both";
+    const active = els.stemSeg.querySelector(".seg.active");
+    const v = active ? active.dataset.value : "both";
     return ["vocals", "no_vocals", "both"].includes(v) ? v : "both";
   }
+  // Toggle : data-on = "true"/"false".
   function readMute() {
-    const el = els.mute;
-    if (el && el.checked !== undefined && el.checked !== null) return !!el.checked;
-    return el ? el.hasAttribute("checked") : false;
+    return els.muteToggle.dataset.on !== "false";
+  }
+
+  // Progression : barre custom (largeur %) + mode indéterminé animé.
+  function setProgress(pct) {
+    els.progress.classList.remove("indeterminate");
+    els.progressBar.style.width = Math.max(0, Math.min(100, pct)) + "%";
   }
 
   let backendReady = false;
 
   function setBackendState(state, label) {
-    els.status.className = `status status--${state}`;
-    els.statusLabel.textContent = `Backend : ${label}`;
+    els.statusPill.className = `pill pill--${state}`;
+    els.statusLabel.textContent = label;
     backendReady = state === "ok";
     els.run.disabled = !backendReady;
   }
 
   function setBusy(busy, text) {
     els.progress.style.display = busy ? "block" : "none";
+    if (busy) els.progress.classList.add("indeterminate");
     els.run.disabled = busy || !backendReady;
     els.check.disabled = busy;
     if (text) els.statusText.textContent = text;
@@ -52,7 +61,7 @@
 
   // Vérifie le backend, et le démarre automatiquement s'il est hors ligne.
   async function checkBackend({ autostart = true } = {}) {
-    setBackendState("busy", "vérification…");
+    setBackendState("busy", "Vérification…");
     let h = await Backend.health();
 
     let notInstalled = false;
@@ -73,18 +82,18 @@
     }
 
     if (h.ok) {
-      setBackendState("ok", `prêt (${h.device || "cpu"})`);
+      setBackendState("ok", `Prêt (${h.device || "cpu"})`);
       showInstallCard(false);
       els.statusText.textContent =
-        "Prêt. Sélectionne une région (in/out) dans la timeline.";
+        "Prêt. Sélectionne un clip audio dans la timeline.";
       AppLog.info("Backend OK", h);
     } else if (notInstalled) {
-      setBackendState("down", "non installé");
+      setBackendState("down", "Non installé");
       showInstallCard(true);
       els.statusText.textContent =
         "Moteur non installé. Clique « Installer le moteur ».";
     } else {
-      setBackendState("down", "hors ligne");
+      setBackendState("down", "Hors ligne");
       showInstallCard(false);
       els.statusText.textContent =
         "Moteur installé mais injoignable. Réessaie « Vérifier le backend ».";
@@ -98,29 +107,18 @@
       els.install.disabled = true;
       setBusy(true, "Téléchargement de l'installeur du moteur…");
       const { folder } = await Installer.downloadInstaller((pct, msg) => {
-        els.progress.removeAttribute("indeterminate");
-        els.progress.value = pct;
+        setProgress(pct);
         els.statusText.textContent = `${msg} (${pct}%)`;
       });
       await Installer.revealInstaller(folder);
       setBusy(false,
         "Installeur téléchargé. Double-clique-le, suis l'installation, puis reviens ici.");
-      els.progress.setAttribute("indeterminate", "");
     } catch (e) {
       AppLog.error(e && e.stack ? e.stack : String(e));
       setBusy(false, `❌ ${e.message || e}`);
     } finally {
       els.install.disabled = false;
     }
-  }
-
-  // Chemin du preset .epr embarqué avec le plugin.
-  async function presetPath() {
-    const uxp = require("uxp");
-    const pluginFolder = await uxp.storage.localFileSystem.getPluginFolder();
-    // presets copiés dans le plugin au packaging (voir presets/README.md)
-    const preset = await pluginFolder.getEntry("presets/audio-wav.epr");
-    return preset.nativePath;
   }
 
   async function run() {
@@ -138,8 +136,7 @@
         src.start,
         src.end,
         (pct, msg) => {
-          els.progress.removeAttribute("indeterminate");
-          els.progress.value = pct;
+          setProgress(pct);
           els.statusText.textContent = `2/3 — ${msg} (${pct}%)`;
         }
       );
@@ -173,12 +170,10 @@
         keep
       );
 
-      setBusy(false, "✅ Terminé. Stem(s) ajouté(s) à la timeline.");
-      els.progress.setAttribute("indeterminate", "");
+      setBusy(false, "✅ Terminé. Stems ajoutés à la timeline.");
     } catch (e) {
       AppLog.error(e && e.stack ? e.stack : String(e));
       setBusy(false, `❌ ${e.message || e}`);
-      els.progress.setAttribute("indeterminate", "");
     }
   }
 
@@ -191,6 +186,26 @@
       "https://github.com/Selgy/PremiereAudioSplit#installation",
       "Ouverture de l'aide d'installation"
     );
+  });
+
+  // Contrôle segmenté « Garder audible ».
+  els.stemSeg.querySelectorAll(".seg").forEach((seg) => {
+    seg.addEventListener("click", () => {
+      els.stemSeg.querySelectorAll(".seg").forEach((s) => s.classList.remove("active"));
+      seg.classList.add("active");
+    });
+  });
+
+  // Toggle « Muter l'audio d'origine ».
+  els.muteToggle.addEventListener("click", () => {
+    const on = els.muteToggle.dataset.on !== "false";
+    els.muteToggle.dataset.on = (!on).toString();
+    els.muteToggle.classList.toggle("on", !on);
+  });
+
+  // Journal repliable.
+  els.logToggle.addEventListener("click", () => {
+    els.log.classList.toggle("collapsed");
   });
 
   // Vérification au démarrage.

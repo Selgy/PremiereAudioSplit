@@ -5,53 +5,66 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="panel">
-      <header>
-        <h1>Audio Split</h1>
-        <div id="backend-status" class="status status--unknown" title="État du backend">
-          <span class="dot"></span><span id="backend-label">Backend&nbsp;: inconnu</span>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+            </svg>
+          </div>
+          <div class="brand-name">Audio Split</div>
+        </div>
+        <div id="backend-status" class="pill pill--unknown">
+          <span class="dot"></span><span id="backend-label">…</span>
         </div>
       </header>
 
-      <section id="install-card" class="install-card" style="display:none">
-        <p class="install-title">Moteur de séparation non installé</p>
-        <p class="install-desc">
+      <div id="install-card" class="card card--warn" style="display:none">
+        <div class="card-title">Moteur non installé</div>
+        <div class="card-desc">
           Installe le moteur une fois. Il démarrera ensuite automatiquement.
-        </p>
-        <sp-button id="btn-install" variant="cta">Installer le moteur</sp-button>
-        <a id="install-help" class="install-help" href="#">Aide / installation manuelle</a>
-      </section>
+        </div>
+        <button id="btn-install" class="btn btn-primary">Installer le moteur</button>
+        <a id="install-help" class="link" href="#">Aide / installation manuelle</a>
+      </div>
 
-      <section class="controls">
-        <sp-action-button id="btn-check" quiet>Vérifier le backend</sp-action-button>
+      <div class="card">
+        <div class="card-label">Garder audible</div>
+        <div class="segmented" id="stem-select">
+          <button class="seg active" data-value="both">Les deux</button>
+          <button class="seg" data-value="vocals">Voix</button>
+          <button class="seg" data-value="no_vocals">Bruit</button>
+        </div>
+      </div>
 
-        <label class="field">
-          <span>Garder audible (l'autre est muté)</span>
-          <sp-picker id="stem-select" size="s" value="both">
-            <sp-menu slot="options">
-              <sp-menu-item value="both" selected>Les deux</sp-menu-item>
-              <sp-menu-item value="vocals">Voix</sp-menu-item>
-              <sp-menu-item value="no_vocals">Bruit de fond</sp-menu-item>
-            </sp-menu>
-          </sp-picker>
-        </label>
+      <div class="card card-row">
+        <div class="row-text">
+          <div class="row-title">Muter l'audio d'origine</div>
+          <div class="row-sub">Désactive le clip source</div>
+        </div>
+        <button id="mute-toggle" class="toggle on" data-on="true" aria-label="Muter l'audio d'origine">
+          <span class="knob"></span>
+        </button>
+      </div>
 
-        <label class="field checkbox">
-          <sp-checkbox id="mute-original" checked>Muter l'audio d'origine</sp-checkbox>
-        </label>
+      <button id="btn-run" class="btn btn-cta" disabled>Séparer la voix</button>
 
-        <sp-button id="btn-run" variant="cta" disabled>Séparer la voix</sp-button>
-      </section>
+      <div id="progress" class="progress" style="display:none"><div class="bar"></div></div>
+      <div id="status-text" class="status-text">
+        Sélectionne un clip audio dans la timeline.
+      </div>
 
-      <section class="progress">
-        <sp-progressbar id="progress" indeterminate style="display:none" max="100" value="0"></sp-progressbar>
-        <p id="status-text" class="status-text">Sélectionne une région (in/out) dans la timeline.</p>
-      </section>
+      <button id="btn-check" class="btn btn-ghost">Vérifier le backend</button>
 
-      <details class="log-wrap">
-        <summary>Journal</summary>
-        <pre id="log" class="log"></pre>
-      </details>
+      <div class="log-card">
+        <button id="log-toggle" class="log-head">
+          <span>Journal</span><span class="chev">▾</span>
+        </button>
+        <pre id="log" class="log collapsed"></pre>
+      </div>
+
+      <div class="footer">Audio Split • fait avec 💜</div>
     </div>
 
     <script src="src/log.js"></script>

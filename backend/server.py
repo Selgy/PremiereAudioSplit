@@ -157,9 +157,24 @@ async def separate_clip_endpoint(
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+    # Enregistre les stems À CÔTÉ du média d'origine (pas dans le dossier temp).
+    media_dir = os.path.dirname(media_path)
+    stem_name = os.path.splitext(os.path.basename(media_path))[0]
+    labels = {"vocals": "Voix", "no_vocals": "Bruit"}
+    final_files = {}
+    for key, path in result["files"].items():
+        dst = os.path.join(media_dir, f"{stem_name} - {labels.get(key, key)}.wav")
+        try:
+            shutil.copyfile(path, dst)
+            final_files[key] = dst
+            print(f"[clip] stem écrit : {dst}", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[clip] copie à côté du média échouée ({dst}): {e}", flush=True)
+            final_files[key] = path  # repli sur le fichier temp
+
     return {
         "jobId": job_id,
-        "files": result["files"],
+        "files": final_files,
         "durations": result.get("durations", {}),
     }
 
