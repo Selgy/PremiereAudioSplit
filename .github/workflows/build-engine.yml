@@ -8,6 +8,10 @@ on:
       - "v*"
   workflow_dispatch:
 
+# Nécessaire pour que softprops/action-gh-release puisse créer la release.
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -43,7 +47,7 @@ jobs:
         working-directory: packaging/windows
         run: |
           choco install innosetup --no-progress -y
-          & "$Env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer.iss
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer.iss
           Copy-Item "Output\AudioSplit-Engine-Windows.exe" "..\dist\AudioSplit-Engine-Windows.exe"
         shell: pwsh
 
