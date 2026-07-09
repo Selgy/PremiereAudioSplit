@@ -25,8 +25,8 @@
   // interaction : on lit propriété -> attribut -> défaut.
   function readStem() {
     const el = els.stem;
-    const v = (el && (el.value || el.getAttribute("value"))) || "vocals";
-    return ["vocals", "no_vocals", "both"].includes(v) ? v : "vocals";
+    const v = (el && (el.value || el.getAttribute("value"))) || "both";
+    return ["vocals", "no_vocals", "both"].includes(v) ? v : "both";
   }
   function readMute() {
     const el = els.mute;
