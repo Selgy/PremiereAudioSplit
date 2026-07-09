@@ -125,35 +125,26 @@
 
   async function run() {
     try {
-      setBusy(true, "1/4 — Clip sélectionné + export…");
-      const preset = await presetPath().catch(() => {
-        throw new Error(
-          "Preset 'presets/audio-wav.epr' manquant. Voir presets/README.md."
-        );
-      });
-
+      setBusy(true, "1/3 — Clip sélectionné…");
       // Tout est piloté par le clip audio sélectionné.
       const selected = await Premiere.getSelectedAudioClip();
-      const { file } = await Premiere.exportClip(
-        preset,
-        selected.startTime,
-        selected.endTime
-      );
-      AppLog.info("Section exportée.");
+      const src = await Premiere.getClipAudioSource(selected);
 
-      setBusy(true, "2/4 — Envoi au modèle…");
-      const bytes = await Premiere.readFileBytes(file);
-
-      setBusy(true, "3/4 — Séparation voix / bruit…");
+      setBusy(true, "2/3 — Extraction + séparation (GPU)…");
       // On sépare TOUJOURS les deux ; le picker choisit lequel reste audible.
       const keep = readStem();
-      const result = await Backend.separate(bytes, file.name, "both", (pct, msg) => {
-        els.progress.removeAttribute("indeterminate");
-        els.progress.value = pct;
-        els.statusText.textContent = `3/4 — ${msg} (${pct}%)`;
-      });
+      const result = await Backend.separateClip(
+        src.mediaPath,
+        src.start,
+        src.end,
+        (pct, msg) => {
+          els.progress.removeAttribute("indeterminate");
+          els.progress.value = pct;
+          els.statusText.textContent = `2/3 — ${msg} (${pct}%)`;
+        }
+      );
 
-      // Contrôle durée : la section exportée doit matcher les stems.
+      // Contrôle durée : le clip extrait doit matcher les stems.
       if (result.durations) {
         const d = result.durations;
         const inDur = d.input;
@@ -162,14 +153,14 @@
           const match =
             inDur != null && d[k] != null && Math.abs(d[k] - inDur) <= 0.05;
           AppLog.info(
-            `Durée ${k}: ${d[k]}s vs section ${inDur}s -> ${
+            `Durée ${k}: ${d[k]}s vs clip ${inDur}s -> ${
               match ? "MATCH ✅" : "MISMATCH ⚠️"
             }`
           );
         }
       }
 
-      setBusy(true, "4/4 — Réimport dans la timeline…");
+      setBusy(true, "3/3 — Réimport dans la timeline…");
       const muteOriginal = readMute();
       // Placement à la position du clip, juste en dessous. Les deux stems sont
       // importés ; `keep` détermine lequel reste audible (l'autre est muté).

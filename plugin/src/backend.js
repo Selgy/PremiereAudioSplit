@@ -88,6 +88,28 @@ const Backend = (() => {
     return body;
   }
 
+  /*
+   * Sépare directement l'audio d'un clip depuis son fichier source : le backend
+   * extrait la plage [start, end] avec ffmpeg puis sépare. Isole le clip
+   * sélectionné (pas le mix de la séquence). Sépare toujours les deux stems.
+   */
+  async function separateClip(mediaPath, start, end, onProgress) {
+    const form = new FormData();
+    form.append("media_path", mediaPath);
+    form.append("start", String(start));
+    form.append("end", String(end));
+    form.append("stems", "both");
+
+    const res = await fetch(`${BASE}/separate_clip`, { method: "POST", body: form });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Séparation échouée (HTTP ${res.status}) ${txt}`);
+    }
+    const body = await res.json();
+    if (onProgress) onProgress(100, "Terminé");
+    return body;
+  }
+
   async function pollJob(jobId, onProgress) {
     // Fallback polling si le backend traite en asynchrone.
     for (;;) {
@@ -103,5 +125,5 @@ const Backend = (() => {
     }
   }
 
-  return { health, separate, autostart, waitUntilReady, BASE };
+  return { health, separate, separateClip, autostart, waitUntilReady, BASE };
 })();

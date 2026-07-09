@@ -45,69 +45,34 @@ const Premiere = (() => {
   }
 
   /*
-   * Exporte la région in/out de la séquence active en WAV.
-   * @param {string} presetPath  chemin absolu vers le preset .epr audio
-   * @returns {Promise<{path:string, inPoint:any}>}
+   * Récupère la source audio ISOLÉE du clip sélectionné : le chemin de son
+   * fichier média + les points de trim (relatifs au média). Le backend extraira
+   * cette plage avec ffmpeg — c'est exactement l'audio du clip, sans le mix des
+   * autres pistes (contrairement à un export de séquence).
+   * @returns {Promise<{mediaPath:string, start:number, end:number}>}
    */
-  /*
-   * Exporte UNIQUEMENT la plage [startTT, endTT] (celle du clip sélectionné) en
-   * WAV. Comme exportSequence n'accepte pas de plage, on cale temporairement les
-   * in/out de la séquence sur le clip, puis on restaure l'ancien état s'il était
-   * valide.
-   */
-  async function exportClip(presetPath, startTT, endTT) {
-    const { project, seq } = await getActiveSequence();
-    const oldIn = await seq.getInPoint();
-    const oldOut = await seq.getOutPoint();
-    const dur = (secs(endTT) - secs(startTT)).toFixed(3);
-    AppLog.info(
-      `[export] plage clip : ${secs(startTT)}s -> ${secs(endTT)}s (durée ${dur}s) | ` +
-        `ancien in/out ${secs(oldIn)}/${secs(oldOut)}`
-    );
-
-    // Cale les in/out sur le clip.
-    project.executeTransaction((c) => {
-      c.addAction(seq.createSetInPointAction(startTT));
-      c.addAction(seq.createSetOutPointAction(endTT));
-    });
-
-    const work = await tempFolder();
-    const name = `section_${Date.now()}.wav`;
-    const outFile = await work.createFile(name, { overwrite: true });
-    const outPath = outFile.nativePath;
-
-    const encoder = await ppro.EncoderManager.getManager();
-    if (typeof encoder.launchEncoder === "function") {
-      try { await encoder.launchEncoder(); } catch (e) { /* best effort */ }
-    }
-    const exportType =
-      (ppro.Constants && ppro.Constants.ExportType &&
-        ppro.Constants.ExportType.IMMEDIATELY) || 0;
-
-    const ok = await encoder.exportSequence(
-      seq, exportType, outPath, presetPath, /* exportFull */ false
-    );
-
-    // Restaure l'état in/out précédent. S'il n'y en avait pas (-400000), ça
-    // remet la séquence sans in/out -> les marqueurs sont retirés.
+  async function getClipAudioSource(selected) {
+    const clip = selected.clip;
+    const pItem = await clip.getProjectItem();
+    let cItem = pItem;
     try {
-      project.executeTransaction((c) => {
-        c.addAction(seq.createSetInPointAction(oldIn));
-        c.addAction(seq.createSetOutPointAction(oldOut));
-      });
-      AppLog.info(`[export] in/out restaurés (${secs(oldIn)}/${secs(oldOut)})`);
-    } catch (e) {
-      AppLog.warn("[export] restauration in/out échouée : " + e);
-    }
+      if (ppro.ClipProjectItem && ppro.ClipProjectItem.cast) {
+        cItem = ppro.ClipProjectItem.cast(pItem) || pItem;
+      }
+    } catch (e) {}
+    const mediaPath = await cItem.getMediaFilePath();
 
-    if (!ok) throw new Error("exportSequence a échoué (preset .epr ou AME ?).");
-    AppLog.info(`[export] WAV écrit : ${outPath}`);
-    return { path: outPath, file: outFile };
-  }
-
-  /* Lit un fichier local en ArrayBuffer pour l'envoi au backend. */
-  async function readFileBytes(entry) {
-    return await entry.read({ format: uxp.storage.formats.binary });
+    // getInPoint/getOutPoint du trackItem = trim relatif au média source.
+    const inTT = await clip.getInPoint();
+    const outTT = await clip.getOutPoint();
+    const start = secs(inTT);
+    const end = secs(outTT);
+    AppLog.info(
+      `[src] média : ${mediaPath}\n[src] trim source ${start}s -> ${end}s ` +
+        `(durée ${end != null && start != null ? (end - start).toFixed(3) : "?"}s)`
+    );
+    if (!mediaPath) throw new Error("Chemin du média introuvable pour ce clip.");
+    return { mediaPath, start, end };
   }
 
   /* Récupère le clip audio SÉLECTIONNÉ (scan des pistes). Lève si aucun. */
@@ -263,9 +228,8 @@ const Premiere = (() => {
 
   return {
     getSelectedAudioClip,
-    exportClip,
+    getClipAudioSource,
     placeStems,
-    readFileBytes,
     getActiveSequence,
     tempFolder,
   };
