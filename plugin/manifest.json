@@ -23,15 +23,10 @@
   "requiredPermissions": {
     "localFileSystem": "fullAccess",
     "network": {
-      "domains": [
-        "http://127.0.0.1:8765",
-        "http://localhost:8765",
-        "https://github.com",
-        "https://*.githubusercontent.com"
-      ]
+      "domains": "all"
     },
     "launchProcess": {
-      "schemes": ["audiosplit"],
+      "schemes": ["audiosplit", "https", "http"],
       "extensions": [".exe", ".msi", ".pkg", ".dmg", ""]
     },
     "allowCodeGenerationFromStrings": false
