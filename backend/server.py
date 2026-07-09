@@ -13,9 +13,20 @@ Le plugin lit ensuite directement les .wav produits via leur chemin absolu.
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import uuid
 from pathlib import Path
+
+# Lancé via audiosplit:// -> pythonw.exe, sans console : sys.stdout/stderr valent
+# None et uvicorn plante en configurant ses logs. On redirige vers un fichier :
+# ça évite le crash ET donne un log persistant du moteur.
+_LOG_DIR = Path(tempfile.gettempdir()) / "premiere-audio-split"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+if sys.stdout is None or sys.stderr is None:
+    _logf = open(_LOG_DIR / "engine.log", "a", buffering=1, encoding="utf-8")
+    sys.stdout = _logf
+    sys.stderr = _logf
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
