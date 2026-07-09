@@ -146,6 +146,22 @@
         els.statusText.textContent = `3/4 — ${msg} (${pct}%)`;
       });
 
+      // Contrôle durée : la section exportée doit matcher les stems.
+      if (result.durations) {
+        const d = result.durations;
+        const inDur = d.input;
+        for (const k of Object.keys(d)) {
+          if (k === "input") continue;
+          const match =
+            inDur != null && d[k] != null && Math.abs(d[k] - inDur) <= 0.05;
+          AppLog.info(
+            `Durée ${k}: ${d[k]}s vs section ${inDur}s -> ${
+              match ? "MATCH ✅" : "MISMATCH ⚠️"
+            }`
+          );
+        }
+      }
+
       setBusy(true, "4/4 — Réimport dans la timeline…");
       const muteOriginal = readMute();
       const wanted =

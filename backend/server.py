@@ -89,7 +89,7 @@ async def separate_endpoint(
         f.write(await file.read())
 
     try:
-        files = sep.separate(
+        result = sep.separate(
             str(in_path),
             str(job_dir),
             stems=stems,
@@ -99,7 +99,11 @@ async def separate_endpoint(
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-    return {"jobId": job_id, "files": files}
+    return {
+        "jobId": job_id,
+        "files": result["files"],
+        "durations": result.get("durations", {}),
+    }
 
 
 def _port_in_use(host: str, port: int) -> bool:

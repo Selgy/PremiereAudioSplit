@@ -44,6 +44,18 @@ def get_device() -> str:
     return "cpu"
 
 
+def _duration(path: str):
+    """Durée d'un WAV en secondes (None si illisible)."""
+    try:
+        import soundfile as sf
+
+        info = sf.info(path)
+        return round(info.frames / info.samplerate, 3)
+    except Exception as e:  # noqa: BLE001
+        print(f"[duration] lecture échouée {path}: {e}", flush=True)
+        return None
+
+
 def _get_separator(model_key: str, out_dir: str):
     """
     Crée un Separator neuf par appel, avec le bon output_dir.
@@ -122,9 +134,22 @@ def separate(
     if stems in ("no_vocals", "both"):
         _publish(noise_src, "no_vocals")
 
+    # Contrôle de durée : la section d'entrée doit correspondre aux stems.
+    in_dur = _duration(input_wav)
+    durations = {"input": in_dur}
+    for key, path in out.items():
+        d = _duration(path)
+        durations[key] = d
+        match = in_dur is not None and d is not None and abs(d - in_dur) <= 0.05
+        print(
+            f"[duration] {key}={d}s vs section={in_dur}s -> "
+            f"{'MATCH' if match else 'MISMATCH'}",
+            flush=True,
+        )
+
     if progress_cb:
         progress_cb(100, "Terminé")
-    return out
+    return {"files": out, "durations": durations}
 
 
 if __name__ == "__main__":
