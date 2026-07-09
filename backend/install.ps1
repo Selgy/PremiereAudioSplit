@@ -16,6 +16,11 @@ if (-not (Test-Path ".venv")) {
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
+# ffmpeg embarqué : copie le binaire fourni par imageio-ffmpeg dans bin/
+Write-Host "== ffmpeg -> bin/ ==" -ForegroundColor Cyan
+New-Item -ItemType Directory -Force -Path "bin" | Out-Null
+python -c "import imageio_ffmpeg, shutil; shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), r'bin\ffmpeg.exe')"
+
 $pythonw = Join-Path $PSScriptRoot ".venv\Scripts\pythonw.exe"
 $server  = Join-Path $PSScriptRoot "server.py"
 if (-not (Test-Path $pythonw)) { throw "pythonw introuvable : $pythonw" }

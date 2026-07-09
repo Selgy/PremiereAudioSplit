@@ -3,6 +3,9 @@ backend/.venv/
 __pycache__/
 *.pyc
 
+# ffmpeg vendorisé (généré par install.ps1 via imageio-ffmpeg)
+backend/bin/
+
 # Preset généré à la racine (dev) ignoré ; celui de plugin/presets/ est versionné
 # car il doit être embarqué dans le .ccx.
 /presets/*.epr

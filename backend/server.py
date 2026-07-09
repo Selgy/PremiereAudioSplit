@@ -28,6 +28,13 @@ if sys.stdout is None or sys.stderr is None:
     sys.stdout = _logf
     sys.stderr = _logf
 
+# audio-separator a besoin de ffmpeg. On l'embarque dans bin/ (les utilisateurs
+# finaux ne l'ont pas) et on préfixe le PATH pour que le sous-processus le trouve.
+# _MEIPASS : emplacement des données quand empaqueté par PyInstaller.
+_BIN_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "bin"
+if _BIN_DIR.is_dir():
+    os.environ["PATH"] = str(_BIN_DIR) + os.pathsep + os.environ.get("PATH", "")
+
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

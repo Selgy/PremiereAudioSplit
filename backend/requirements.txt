@@ -10,3 +10,7 @@ python-multipart>=0.0.9
 audio-separator[cpu]>=0.24
 soundfile>=0.12
 numpy>=1.24
+
+# Fournit un binaire ffmpeg (requis par audio-separator). install.ps1 le copie
+# dans backend/bin/ffmpeg.exe pour l'embarquer avec le moteur.
+imageio-ffmpeg>=0.5
