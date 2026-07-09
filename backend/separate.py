@@ -45,19 +45,17 @@ def get_device() -> str:
 
 
 def _get_separator(model_key: str, out_dir: str):
-    """Charge (et met en cache) un Separator pour le modèle demandé."""
+    """
+    Crée un Separator neuf par appel, avec le bon output_dir.
+    (Réutiliser une instance ne met pas à jour son output_dir interne : les
+    fichiers partaient dans le dossier du 1er job -> introuvables ensuite.)
+    Le fichier modèle reste en cache disque, donc pas de re-téléchargement.
+    """
     from audio_separator.separator import Separator
 
     model_file = MODELS.get(model_key, MODELS["kim_vocal_2"])
-    cache_key = f"{model_key}"
-    sep = _SEPARATORS.get(cache_key)
-    if sep is None:
-        sep = Separator(output_dir=out_dir, output_format="WAV")
-        sep.load_model(model_filename=model_file)
-        _SEPARATORS[cache_key] = sep
-    else:
-        # réutilise le modèle chargé, mais écrit dans le bon dossier
-        sep.output_dir = out_dir
+    sep = Separator(output_dir=out_dir, output_format="WAV")
+    sep.load_model(model_filename=model_file)
     return sep
 
 
@@ -86,7 +84,15 @@ def separate(
 
     # audio-separator renvoie la liste des fichiers produits (Vocals / Instrumental).
     produced = sep.separate(input_wav)
-    produced_paths = [str(Path(out_dir) / p) if not os.path.isabs(p) else p for p in produced]
+    produced_paths = [
+        p if os.path.isabs(p) else os.path.join(out_dir, os.path.basename(p))
+        for p in produced
+    ]
+    print(f"[separate] produced={produced}", flush=True)
+    print(
+        f"[separate] resolved={[(p, os.path.exists(p)) for p in produced_paths]}",
+        flush=True,
+    )
 
     if progress_cb:
         progress_cb(85, "Écriture des stems…")
