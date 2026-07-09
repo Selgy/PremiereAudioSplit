@@ -1,0 +1,61 @@
+name: Build engine
+
+# Construit le moteur pour Windows + macOS et attache les installeurs à la
+# release correspondant au tag poussé (ex: v0.1.0).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: AudioSplit-Engine-Windows.exe
+          - os: macos-latest
+            asset: AudioSplit-Engine-macOS.pkg
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+
+      - name: PyInstaller build
+        working-directory: packaging
+        run: pyinstaller AudioSplitEngine.spec --noconfirm
+
+      # --- Windows : Inno Setup ---
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        working-directory: packaging/windows
+        run: |
+          choco install innosetup --no-progress -y
+          & "$Env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer.iss
+          Copy-Item "Output\AudioSplit-Engine-Windows.exe" "..\dist\AudioSplit-Engine-Windows.exe"
+        shell: pwsh
+
+      # --- macOS : .pkg (ad-hoc, non notarisé) ---
+      - name: Build macOS pkg
+        if: runner.os == 'macOS'
+        working-directory: packaging/macos
+        run: bash build-pkg.sh
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packaging/dist/${{ matrix.asset }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

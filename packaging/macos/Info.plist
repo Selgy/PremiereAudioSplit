@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Info.plist du .app Mac. Déclare le schéma audiosplit:// pour que
+     shell.openExternal("audiosplit://start") lance le moteur. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>AudioSplitEngine</string>
+  <key>CFBundleDisplayName</key>
+  <string>AudioSplit Engine</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.premiereaudiosplit.engine</string>
+  <key>CFBundleVersion</key>
+  <string>0.1.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleExecutable</key>
+  <string>AudioSplitEngine</string>
+  <key>LSBackgroundOnly</key>
+  <true/>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.premiereaudiosplit.audiosplit</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>audiosplit</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>

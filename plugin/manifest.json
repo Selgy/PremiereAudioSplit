@@ -1,0 +1,48 @@
+{
+  "manifestVersion": 5,
+  "id": "com.premiereaudiosplit.panel",
+  "name": "Audio Split",
+  "version": "0.1.0",
+  "main": "index.html",
+  "host": [
+    {
+      "app": "premierepro",
+      "minVersion": "25.6.0"
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "audioSplitPanel",
+      "label": { "default": "Audio Split" },
+      "minimumSize": { "width": 260, "height": 320 },
+      "preferredDockedSize": { "width": 320, "height": 480 },
+      "preferredFloatingSize": { "width": 360, "height": 520 }
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "network": {
+      "domains": [
+        "http://127.0.0.1:8765",
+        "http://localhost:8765",
+        "https://github.com",
+        "https://*.githubusercontent.com"
+      ]
+    },
+    "launchProcess": {
+      "schemes": ["audiosplit"],
+      "extensions": [".exe", ".msi", ".pkg", ".dmg", ""]
+    },
+    "allowCodeGenerationFromStrings": false
+  },
+  "icons": [
+    {
+      "width": 23,
+      "height": 23,
+      "path": "icons/icon-light.png",
+      "scale": [1, 2],
+      "theme": ["darkest", "dark", "medium"]
+    }
+  ]
+}

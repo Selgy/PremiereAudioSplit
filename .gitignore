@@ -1,0 +1,22 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Presets binaires générés localement
+presets/*.epr
+
+# Sorties / temp
+out/
+*.wav
+work/
+
+# Packaging plugin
+*.ccx
+plugin/dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

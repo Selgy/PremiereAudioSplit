@@ -1,0 +1,103 @@
+:root {
+  --gap: 12px;
+  --radius: 6px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "adobe-clean", system-ui, sans-serif;
+  color: var(--uxp-host-text-color, #e8e8e8);
+  background: var(--uxp-host-background-color, #262626);
+  font-size: 12px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--gap);
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+h1 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  opacity: 0.9;
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #888;
+}
+.status--ok .dot { background: #3bd16f; }
+.status--down .dot { background: #e5484d; }
+.status--busy .dot { background: #f5a623; }
+.status--unknown .dot { background: #888; }
+
+.install-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(245, 166, 35, 0.5);
+  border-radius: var(--radius);
+  background: rgba(245, 166, 35, 0.08);
+}
+.install-title { margin: 0; font-weight: 700; }
+.install-desc { margin: 0; opacity: 0.8; }
+.install-help { font-size: 11px; opacity: 0.8; }
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field > span { opacity: 0.8; }
+.field.checkbox { flex-direction: row; align-items: center; }
+
+.progress { display: flex; flex-direction: column; gap: 6px; }
+.status-text {
+  margin: 0;
+  opacity: 0.8;
+  min-height: 2.4em;
+  line-height: 1.2;
+}
+
+.log-wrap { margin-top: auto; }
+.log-wrap summary { cursor: pointer; opacity: 0.7; }
+.log {
+  max-height: 140px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius);
+  padding: 8px;
+  margin: 6px 0 0;
+  font-family: ui-monospace, "Consolas", monospace;
+  font-size: 10.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+sp-button, sp-action-button { width: 100%; }

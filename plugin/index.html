@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="panel">
+      <header>
+        <h1>Audio Split</h1>
+        <div id="backend-status" class="status status--unknown" title="État du backend">
+          <span class="dot"></span><span id="backend-label">Backend&nbsp;: inconnu</span>
+        </div>
+      </header>
+
+      <section id="install-card" class="install-card" style="display:none">
+        <p class="install-title">Moteur de séparation non installé</p>
+        <p class="install-desc">
+          Installe le moteur une fois. Il démarrera ensuite automatiquement.
+        </p>
+        <sp-button id="btn-install" variant="cta">Installer le moteur</sp-button>
+        <a id="install-help" class="install-help" href="#">Aide / installation manuelle</a>
+      </section>
+
+      <section class="controls">
+        <sp-action-button id="btn-check" quiet>Vérifier le backend</sp-action-button>
+
+        <label class="field">
+          <span>Stem à réimporter</span>
+          <sp-picker id="stem-select" size="s" value="vocals">
+            <sp-menu slot="options">
+              <sp-menu-item value="vocals">Voix (vocals)</sp-menu-item>
+              <sp-menu-item value="no_vocals">Sans voix (bruit)</sp-menu-item>
+              <sp-menu-item value="both">Les deux</sp-menu-item>
+            </sp-menu>
+          </sp-picker>
+        </label>
+
+        <label class="field checkbox">
+          <sp-checkbox id="mute-original" checked>Muter l'audio d'origine</sp-checkbox>
+        </label>
+
+        <sp-button id="btn-run" variant="cta" disabled>Séparer la voix</sp-button>
+      </section>
+
+      <section class="progress">
+        <sp-progressbar id="progress" indeterminate style="display:none" max="100" value="0"></sp-progressbar>
+        <p id="status-text" class="status-text">Sélectionne une région (in/out) dans la timeline.</p>
+      </section>
+
+      <details class="log-wrap">
+        <summary>Journal</summary>
+        <pre id="log" class="log"></pre>
+      </details>
+    </div>
+
+    <script src="src/log.js"></script>
+    <script src="src/installer.js"></script>
+    <script src="src/backend.js"></script>
+    <script src="src/premiere.js"></script>
+    <script src="src/main.js"></script>
+  </body>
+</html>
