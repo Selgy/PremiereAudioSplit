@@ -125,14 +125,20 @@
 
   async function run() {
     try {
-      setBusy(true, "1/4 — Export de la section (in/out)…");
+      setBusy(true, "1/4 — Clip sélectionné + export…");
       const preset = await presetPath().catch(() => {
         throw new Error(
           "Preset 'presets/audio-wav.epr' manquant. Voir presets/README.md."
         );
       });
 
-      const { file, inPoint } = await Premiere.exportSection(preset);
+      // Tout est piloté par le clip audio sélectionné.
+      const selected = await Premiere.getSelectedAudioClip();
+      const { file } = await Premiere.exportClip(
+        preset,
+        selected.startTime,
+        selected.endTime
+      );
       AppLog.info("Section exportée.");
 
       setBusy(true, "2/4 — Envoi au modèle…");
@@ -166,7 +172,14 @@
       const muteOriginal = readMute();
       const wanted =
         stems === "both" ? ["vocals", "no_vocals"] : [stems];
-      await Premiere.placeStems(result.files, inPoint, muteOriginal, wanted);
+      // Placement à la position du clip, juste en dessous de lui.
+      await Premiere.placeStems(
+        result.files,
+        selected.startTime,
+        wanted,
+        selected,
+        muteOriginal
+      );
 
       setBusy(false, "✅ Terminé. Stem(s) ajouté(s) à la timeline.");
       els.progress.setAttribute("indeterminate", "");

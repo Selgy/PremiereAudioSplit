@@ -45,36 +45,31 @@ const Premiere = (() => {
   }
 
   /*
-   * Récupère les points in/out de la séquence active.
-   * Retourne des TickTime. Si aucun in/out n'est posé, on lève une erreur
-   * (on ne veut pas exporter toute la timeline par accident).
-   */
-  async function getInOut(seq) {
-    // TODO(verify): noms exacts selon version — getInPoint()/getOutPoint()
-    // ou getInPointAsTickTime()/getOutPointAsTickTime().
-    const inPoint = await seq.getInPoint();
-    const outPoint = await seq.getOutPoint();
-    if (!inPoint || !outPoint) {
-      throw new Error("Pose des points d'entrée/sortie (I / O) sur la séquence.");
-    }
-    return { inPoint, outPoint };
-  }
-
-  /*
    * Exporte la région in/out de la séquence active en WAV.
    * @param {string} presetPath  chemin absolu vers le preset .epr audio
    * @returns {Promise<{path:string, inPoint:any}>}
    */
-  async function exportSection(presetPath) {
-    const { seq } = await getActiveSequence();
-    const { inPoint, outPoint } = await getInOut(seq);
-    const inS = secs(inPoint);
-    const outS = secs(outPoint);
+  /*
+   * Exporte UNIQUEMENT la plage [startTT, endTT] (celle du clip sélectionné) en
+   * WAV. Comme exportSequence n'accepte pas de plage, on cale temporairement les
+   * in/out de la séquence sur le clip, puis on restaure l'ancien état s'il était
+   * valide.
+   */
+  async function exportClip(presetPath, startTT, endTT) {
+    const { project, seq } = await getActiveSequence();
+    const oldIn = await seq.getInPoint();
+    const oldOut = await seq.getOutPoint();
+    const dur = (secs(endTT) - secs(startTT)).toFixed(3);
     AppLog.info(
-      `[export] séquence in/out : ${inS}s -> ${outS}s (durée ${
-        inS != null && outS != null ? (outS - inS).toFixed(3) : "?"
-      }s)`
+      `[export] plage clip : ${secs(startTT)}s -> ${secs(endTT)}s (durée ${dur}s) | ` +
+        `ancien in/out ${secs(oldIn)}/${secs(oldOut)}`
     );
+
+    // Cale les in/out sur le clip.
+    project.executeTransaction((c) => {
+      c.addAction(seq.createSetInPointAction(startTT));
+      c.addAction(seq.createSetOutPointAction(endTT));
+    });
 
     const work = await tempFolder();
     const name = `section_${Date.now()}.wav`;
@@ -82,29 +77,32 @@ const Premiere = (() => {
     const outPath = outFile.nativePath;
 
     const encoder = await ppro.EncoderManager.getManager();
-
-    // S'assure qu'AME est prêt (v26.3+ : launchEncoder). Ignoré si indisponible.
     if (typeof encoder.launchEncoder === "function") {
       try { await encoder.launchEncoder(); } catch (e) { /* best effort */ }
     }
-
-    // exportFull=false -> exporte uniquement la région in/out.
-    // TODO(verify): ExportType — IMMEDIATELY vs QUEUE selon Constants.
     const exportType =
       (ppro.Constants && ppro.Constants.ExportType &&
         ppro.Constants.ExportType.IMMEDIATELY) || 0;
 
     const ok = await encoder.exportSequence(
-      seq,
-      exportType,
-      outPath,
-      presetPath,
-      /* exportFull */ false
+      seq, exportType, outPath, presetPath, /* exportFull */ false
     );
-    if (!ok) throw new Error("exportSequence a échoué (preset .epr ou AME ?).");
 
+    // Restaure l'ancien in/out s'il était valide (>= 0 ; sinon il n'y en avait pas).
+    if (secs(oldIn) != null && secs(oldIn) >= 0 && secs(oldOut) >= 0) {
+      try {
+        project.executeTransaction((c) => {
+          c.addAction(seq.createSetInPointAction(oldIn));
+          c.addAction(seq.createSetOutPointAction(oldOut));
+        });
+      } catch (e) {
+        AppLog.warn("[export] restauration in/out échouée : " + e);
+      }
+    }
+
+    if (!ok) throw new Error("exportSequence a échoué (preset .epr ou AME ?).");
     AppLog.info(`[export] WAV écrit : ${outPath}`);
-    return { path: outPath, file: outFile, inPoint };
+    return { path: outPath, file: outFile };
   }
 
   /* Lit un fichier local en ArrayBuffer pour l'envoi au backend. */
@@ -112,8 +110,9 @@ const Premiere = (() => {
     return await entry.read({ format: uxp.storage.formats.binary });
   }
 
-  /* Trouve le clip audio SÉLECTIONNÉ (scan des pistes) + son index de piste. */
-  async function findSelectedAudioClip(seq) {
+  /* Récupère le clip audio SÉLECTIONNÉ (scan des pistes). Lève si aucun. */
+  async function getSelectedAudioClip() {
+    const { seq } = await getActiveSequence();
     const CLIP =
       (ppro.Constants &&
         ppro.Constants.TrackItemType &&
@@ -143,8 +142,7 @@ const Premiere = (() => {
         }
       }
     }
-    AppLog.warn("[sel] Aucun clip audio sélectionné.");
-    return null;
+    throw new Error("Sélectionne un clip audio dans la timeline.");
   }
 
   /*
@@ -178,16 +176,18 @@ const Premiere = (() => {
    * @param {boolean} muteOriginal
    * @param {string[]} order                ordre des stems à placer
    */
-  async function placeStems(files, atTime, muteOriginal, order) {
+  async function placeStems(files, atTime, order, selected, muteOriginal) {
     const { project, seq } = await getActiveSequence();
     AppLog.info(`[place] placement à ${secs(atTime)}s | stems demandés : ${order.join(", ")}`);
-    const selected = await findSelectedAudioClip(seq);
 
-    // Nouvelles pistes en bas : index >= nb de pistes => créées automatiquement.
-    const base = await seq.getAudioTrackCount();
+    // Juste en dessous du clip sélectionné (index+1, +2). Si l'index dépasse le
+    // nombre de pistes, createOverwriteItemAction en crée une nouvelle.
+    const base = selected ? selected.trackIndex + 1 : await seq.getAudioTrackCount();
+    const count = await seq.getAudioTrackCount();
     AppLog.info(
-      `[place] ${base} piste(s) audio existante(s) -> stems sur A${base + 1}+` +
-        (selected ? ` | clip sélectionné sur A${selected.trackIndex + 1}` : "")
+      `[place] ${count} piste(s) audio | clip sélectionné A${
+        selected ? selected.trackIndex + 1 : "?"
+      } -> stems sur A${base + 1}, A${base + 2}`
     );
 
     // Import (async) AVANT la transaction : on a besoin des ProjectItem.
@@ -238,7 +238,8 @@ const Premiere = (() => {
   }
 
   return {
-    exportSection,
+    getSelectedAudioClip,
+    exportClip,
     placeStems,
     readFileBytes,
     getActiveSequence,
