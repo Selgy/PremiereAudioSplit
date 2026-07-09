@@ -3,8 +3,9 @@ backend/.venv/
 __pycache__/
 *.pyc
 
-# Presets binaires générés localement
-presets/*.epr
+# Preset généré à la racine (dev) ignoré ; celui de plugin/presets/ est versionné
+# car il doit être embarqué dans le .ccx.
+/presets/*.epr
 
 # Sorties / temp
 out/
