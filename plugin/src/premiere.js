@@ -34,6 +34,16 @@ const Premiere = (() => {
     return { project, seq };
   }
 
+  /* Lit une TickTime en secondes (robuste, pour les logs). */
+  function secs(tt) {
+    try {
+      if (tt == null) return null;
+      if (typeof tt.seconds === "number") return Math.round(tt.seconds * 1000) / 1000;
+      if (typeof tt.ticksNumber === "number") return Math.round((tt.ticksNumber / 254016000000) * 1000) / 1000;
+    } catch (e) {}
+    return null;
+  }
+
   /*
    * Récupère les points in/out de la séquence active.
    * Retourne des TickTime. Si aucun in/out n'est posé, on lève une erreur
@@ -57,7 +67,14 @@ const Premiere = (() => {
    */
   async function exportSection(presetPath) {
     const { seq } = await getActiveSequence();
-    const { inPoint } = await getInOut(seq);
+    const { inPoint, outPoint } = await getInOut(seq);
+    const inS = secs(inPoint);
+    const outS = secs(outPoint);
+    AppLog.info(
+      `[export] séquence in/out : ${inS}s -> ${outS}s (durée ${
+        inS != null && outS != null ? (outS - inS).toFixed(3) : "?"
+      }s)`
+    );
 
     const work = await tempFolder();
     const name = `section_${Date.now()}.wav`;
@@ -86,6 +103,7 @@ const Premiere = (() => {
     );
     if (!ok) throw new Error("exportSequence a échoué (preset .epr ou AME ?).");
 
+    AppLog.info(`[export] WAV écrit : ${outPath}`);
     return { path: outPath, file: outFile, inPoint };
   }
 
@@ -106,10 +124,26 @@ const Premiere = (() => {
     for (let i = 0; i < count; i++) {
       const track = await seq.getAudioTrack(i);
       const items = await track.getTrackItems(CLIP, false);
+      AppLog.info(`[sel] piste A${i + 1} (index ${i}) : ${items.length} clip(s)`);
       for (const it of items) {
-        if (await it.getIsSelected()) return { clip: it, trackIndex: i };
+        if (await it.getIsSelected()) {
+          let name = "";
+          let start = null;
+          let end = null;
+          let dur = null;
+          try { name = await it.getName(); } catch (e) {}
+          try { start = await it.getStartTime(); } catch (e) {}
+          try { end = await it.getEndTime(); } catch (e) {}
+          try { dur = await it.getDuration(); } catch (e) {}
+          AppLog.info(
+            `[sel] CLIP SÉLECTIONNÉ : "${name}" | piste A${i + 1} (index ${i}) | ` +
+              `début ${secs(start)}s | fin ${secs(end)}s | durée ${secs(dur)}s`
+          );
+          return { clip: it, trackIndex: i, startTime: start, endTime: end };
+        }
       }
     }
+    AppLog.warn("[sel] Aucun clip audio sélectionné.");
     return null;
   }
 
@@ -126,7 +160,10 @@ const Premiere = (() => {
     if (!ok) throw new Error("importFiles a échoué : " + wavPath);
 
     for (const it of await root.getItems()) {
-      if (!before.has(it.getId())) return it;
+      if (!before.has(it.getId())) {
+        AppLog.info(`[import] OK -> ProjectItem id=${it.getId()}`);
+        return it;
+      }
     }
     throw new Error("ProjectItem importé introuvable : " + wavPath);
   }
@@ -143,19 +180,30 @@ const Premiere = (() => {
    */
   async function placeStems(files, atTime, muteOriginal, order) {
     const { project, seq } = await getActiveSequence();
+    AppLog.info(`[place] placement à ${secs(atTime)}s | stems demandés : ${order.join(", ")}`);
     const selected = await findSelectedAudioClip(seq);
 
     // Nouvelles pistes en bas : index >= nb de pistes => créées automatiquement.
     const base = await seq.getAudioTrackCount();
+    AppLog.info(
+      `[place] ${base} piste(s) audio existante(s) -> stems sur A${base + 1}+` +
+        (selected ? ` | clip sélectionné sur A${selected.trackIndex + 1}` : "")
+    );
 
     // Import (async) AVANT la transaction : on a besoin des ProjectItem.
     const toPlace = [];
     let offset = 0;
     for (const key of order) {
       const p = files && files[key];
-      if (!p) continue;
+      if (!p) {
+        AppLog.warn(`[place] pas de chemin pour "${key}" -> ignoré`);
+        continue;
+      }
+      AppLog.info(`[place] import "${key}" : ${p}`);
       const item = await importWav(project, p);
-      toPlace.push({ key, item, audioTrackIndex: base + offset });
+      const target = base + offset;
+      AppLog.info(`[place] "${key}" -> piste audio A${target + 1} (index ${target})`);
+      toPlace.push({ key, item, audioTrackIndex: target });
       offset++;
     }
     if (toPlace.length === 0) throw new Error("Aucun stem à placer.");
@@ -179,12 +227,12 @@ const Premiere = (() => {
     });
 
     AppLog.info(
-      `Placé ${toPlace.length} stem(s) sur pistes audio ${base + 1}+.`,
-      muteOriginal && selected
-        ? "Clip sélectionné muté."
-        : selected
-        ? ""
-        : "(aucun clip sélectionné -> pas de mute)"
+      `[place] transaction ok=${ok} | ${toPlace.length} stem(s) placé(s) | ` +
+        (muteOriginal && selected
+          ? "clip sélectionné muté"
+          : selected
+          ? "mute désactivé"
+          : "aucun clip sélectionné -> pas de mute")
     );
     return { ok, placed: toPlace.length, muted: !!(muteOriginal && selected) };
   }
