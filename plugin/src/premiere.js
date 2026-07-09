@@ -88,16 +88,16 @@ const Premiere = (() => {
       seq, exportType, outPath, presetPath, /* exportFull */ false
     );
 
-    // Restaure l'ancien in/out s'il était valide (>= 0 ; sinon il n'y en avait pas).
-    if (secs(oldIn) != null && secs(oldIn) >= 0 && secs(oldOut) >= 0) {
-      try {
-        project.executeTransaction((c) => {
-          c.addAction(seq.createSetInPointAction(oldIn));
-          c.addAction(seq.createSetOutPointAction(oldOut));
-        });
-      } catch (e) {
-        AppLog.warn("[export] restauration in/out échouée : " + e);
-      }
+    // Restaure l'état in/out précédent. S'il n'y en avait pas (-400000), ça
+    // remet la séquence sans in/out -> les marqueurs sont retirés.
+    try {
+      project.executeTransaction((c) => {
+        c.addAction(seq.createSetInPointAction(oldIn));
+        c.addAction(seq.createSetOutPointAction(oldOut));
+      });
+      AppLog.info(`[export] in/out restaurés (${secs(oldIn)}/${secs(oldOut)})`);
+    } catch (e) {
+      AppLog.warn("[export] restauration in/out échouée : " + e);
     }
 
     if (!ok) throw new Error("exportSequence a échoué (preset .epr ou AME ?).");
@@ -167,16 +167,21 @@ const Premiere = (() => {
   }
 
   /*
-   * Importe les stems et les place sur de NOUVELLES pistes audio (créées en bas
-   * pour ne rien écraser), calés à `atTime`. Mute le clip sélectionné si demandé.
-   * Le tout dans une seule transaction annulable (Ctrl+Z).
+   * Importe TOUJOURS les deux stems, les place juste sous le clip sélectionné,
+   * calés à `atTime`. Selon `keep`, mute la piste du stem non voulu :
+   *   keep="vocals"    -> mute la piste bruit
+   *   keep="no_vocals" -> mute la piste voix
+   *   keep="both"      -> ne mute aucun stem
+   * Mute aussi le clip d'origine si `muteOriginal`.
    *
-   * @param {Record<string,string>} files  { vocals?:path, no_vocals?:path }
-   * @param {any} atTime                    TickTime de placement (point d'entrée)
+   * @param {Record<string,string>} files  { vocals:path, no_vocals:path }
+   * @param {any} atTime                    TickTime de placement
+   * @param {string[]} order                stems à placer (ex: ["vocals","no_vocals"])
+   * @param {object|null} selected          clip sélectionné {clip, trackIndex}
    * @param {boolean} muteOriginal
-   * @param {string[]} order                ordre des stems à placer
+   * @param {"vocals"|"no_vocals"|"both"} keep  stem à garder audible
    */
-  async function placeStems(files, atTime, order, selected, muteOriginal) {
+  async function placeStems(files, atTime, order, selected, muteOriginal, keep) {
     const { project, seq } = await getActiveSequence();
     AppLog.info(`[place] placement à ${secs(atTime)}s | stems demandés : ${order.join(", ")}`);
 
@@ -228,13 +233,32 @@ const Premiere = (() => {
 
     AppLog.info(
       `[place] transaction ok=${ok} | ${toPlace.length} stem(s) placé(s) | ` +
-        (muteOriginal && selected
-          ? "clip sélectionné muté"
-          : selected
-          ? "mute désactivé"
-          : "aucun clip sélectionné -> pas de mute")
+        (muteOriginal && selected ? "clip d'origine muté" : "clip d'origine non muté")
     );
-    return { ok, placed: toPlace.length, muted: !!(muteOriginal && selected) };
+
+    // Mute la piste du stem NON gardé (les deux sont toujours importés).
+    const trackByKey = {};
+    for (const t of toPlace) trackByKey[t.key] = t.audioTrackIndex;
+
+    async function muteStemTrack(idx, label) {
+      try {
+        const tr = await seq.getAudioTrack(idx);
+        await tr.setMute(true);
+        AppLog.info(`[place] piste A${idx + 1} (${label}) mutée`);
+      } catch (e) {
+        AppLog.warn(`[place] mute piste ${idx} échoué : ${e}`);
+      }
+    }
+
+    if (keep === "vocals" && trackByKey.no_vocals != null) {
+      await muteStemTrack(trackByKey.no_vocals, "bruit");
+    } else if (keep === "no_vocals" && trackByKey.vocals != null) {
+      await muteStemTrack(trackByKey.vocals, "voix");
+    } else {
+      AppLog.info("[place] les deux stems restent audibles");
+    }
+
+    return { ok, placed: toPlace.length, keep };
   }
 
   return {

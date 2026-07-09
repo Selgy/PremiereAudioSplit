@@ -145,8 +145,9 @@
       const bytes = await Premiere.readFileBytes(file);
 
       setBusy(true, "3/4 — Séparation voix / bruit…");
-      const stems = readStem();
-      const result = await Backend.separate(bytes, file.name, stems, (pct, msg) => {
+      // On sépare TOUJOURS les deux ; le picker choisit lequel reste audible.
+      const keep = readStem();
+      const result = await Backend.separate(bytes, file.name, "both", (pct, msg) => {
         els.progress.removeAttribute("indeterminate");
         els.progress.value = pct;
         els.statusText.textContent = `3/4 — ${msg} (${pct}%)`;
@@ -170,15 +171,15 @@
 
       setBusy(true, "4/4 — Réimport dans la timeline…");
       const muteOriginal = readMute();
-      const wanted =
-        stems === "both" ? ["vocals", "no_vocals"] : [stems];
-      // Placement à la position du clip, juste en dessous de lui.
+      // Placement à la position du clip, juste en dessous. Les deux stems sont
+      // importés ; `keep` détermine lequel reste audible (l'autre est muté).
       await Premiere.placeStems(
         result.files,
         selected.startTime,
-        wanted,
+        ["vocals", "no_vocals"],
         selected,
-        muteOriginal
+        muteOriginal,
+        keep
       );
 
       setBusy(false, "✅ Terminé. Stem(s) ajouté(s) à la timeline.");

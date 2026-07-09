@@ -26,12 +26,12 @@
         <sp-action-button id="btn-check" quiet>Vérifier le backend</sp-action-button>
 
         <label class="field">
-          <span>Stem à réimporter</span>
+          <span>Garder audible (l'autre est muté)</span>
           <sp-picker id="stem-select" size="s" value="both">
             <sp-menu slot="options">
-              <sp-menu-item value="both">Les deux</sp-menu-item>
-              <sp-menu-item value="vocals">Voix (vocals)</sp-menu-item>
-              <sp-menu-item value="no_vocals">Sans voix (bruit)</sp-menu-item>
+              <sp-menu-item value="both" selected>Les deux</sp-menu-item>
+              <sp-menu-item value="vocals">Voix</sp-menu-item>
+              <sp-menu-item value="no_vocals">Bruit de fond</sp-menu-item>
             </sp-menu>
           </sp-picker>
         </label>
