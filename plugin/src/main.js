@@ -8,6 +8,7 @@
     check: byId("btn-check"),
     run: byId("btn-run"),
     stemSeg: byId("stem-select"),
+    qualitySeg: byId("quality-select"),
     muteToggle: byId("mute-toggle"),
     statusPill: byId("backend-status"),
     statusLabel: byId("backend-label"),
@@ -35,12 +36,42 @@
   function readMute() {
     return els.muteToggle.dataset.on !== "false";
   }
+  // Qualité -> nom du modèle backend.
+  function readQuality() {
+    const active = els.qualitySeg.querySelector(".seg.active");
+    const v = active ? active.dataset.value : "kim_vocal_2";
+    return ["kim_vocal_2", "mel_roformer", "bs_roformer"].includes(v)
+      ? v
+      : "kim_vocal_2";
+  }
 
-  // Progression : barre custom (largeur %) + mode indéterminé animé.
+  // Progression. UXP ne supporte pas les animations CSS -> pulse piloté en JS.
+  let pulseTimer = null;
+  function startPulse() {
+    stopPulse();
+    let w = 8, dir = 1;
+    els.progressBar.style.width = w + "%";
+    pulseTimer = setInterval(() => {
+      w += dir * 7;
+      if (w >= 92) { w = 92; dir = -1; }
+      else if (w <= 8) { w = 8; dir = 1; }
+      els.progressBar.style.width = w + "%";
+    }, 110);
+  }
+  function stopPulse() {
+    if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
+  }
   function setProgress(pct) {
-    els.progress.classList.remove("indeterminate");
+    stopPulse();
     els.progressBar.style.width = Math.max(0, Math.min(100, pct)) + "%";
   }
+
+  // Les "boutons" sont des <div> (UXP impose son chrome aux <button>) : on gère
+  // l'état désactivé via une classe.
+  function setDisabled(el, disabled) {
+    el.classList.toggle("is-disabled", !!disabled);
+  }
+  const isDisabled = (el) => el.classList.contains("is-disabled");
 
   let backendReady = false;
 
@@ -48,14 +79,15 @@
     els.statusPill.className = `pill pill--${state}`;
     els.statusLabel.textContent = label;
     backendReady = state === "ok";
-    els.run.disabled = !backendReady;
+    setDisabled(els.run, !backendReady);
   }
 
   function setBusy(busy, text) {
     els.progress.style.display = busy ? "block" : "none";
-    if (busy) els.progress.classList.add("indeterminate");
-    els.run.disabled = busy || !backendReady;
-    els.check.disabled = busy;
+    if (busy) startPulse();
+    else stopPulse();
+    setDisabled(els.run, busy || !backendReady);
+    setDisabled(els.check, busy);
     if (text) els.statusText.textContent = text;
   }
 
@@ -104,7 +136,7 @@
   // Bouton « Installer le moteur » : télécharge l'installeur et ouvre le dossier.
   async function installEngine() {
     try {
-      els.install.disabled = true;
+      setDisabled(els.install, true);
       setBusy(true, "Téléchargement de l'installeur du moteur…");
       const { folder } = await Installer.downloadInstaller((pct, msg) => {
         setProgress(pct);
@@ -117,7 +149,7 @@
       AppLog.error(e && e.stack ? e.stack : String(e));
       setBusy(false, `❌ ${e.message || e}`);
     } finally {
-      els.install.disabled = false;
+      setDisabled(els.install, false);
     }
   }
 
@@ -131,10 +163,12 @@
       setBusy(true, "2/3 — Extraction + séparation (GPU)…");
       // On sépare TOUJOURS les deux ; le picker choisit lequel reste audible.
       const keep = readStem();
+      const model = readQuality();
       const result = await Backend.separateClip(
         src.mediaPath,
         src.start,
         src.end,
+        model,
         (pct, msg) => {
           setProgress(pct);
           els.statusText.textContent = `2/3 — ${msg} (${pct}%)`;
@@ -177,9 +211,15 @@
     }
   }
 
-  els.check.addEventListener("click", () => checkBackend());
-  els.run.addEventListener("click", run);
-  els.install.addEventListener("click", installEngine);
+  els.check.addEventListener("click", () => {
+    if (!isDisabled(els.check)) checkBackend();
+  });
+  els.run.addEventListener("click", () => {
+    if (!isDisabled(els.run)) run();
+  });
+  els.install.addEventListener("click", () => {
+    if (!isDisabled(els.install)) installEngine();
+  });
   els.installHelp.addEventListener("click", (e) => {
     e.preventDefault();
     require("uxp").shell.openExternal(
@@ -188,11 +228,13 @@
     );
   });
 
-  // Contrôle segmenté « Garder audible ».
-  els.stemSeg.querySelectorAll(".seg").forEach((seg) => {
-    seg.addEventListener("click", () => {
-      els.stemSeg.querySelectorAll(".seg").forEach((s) => s.classList.remove("active"));
-      seg.classList.add("active");
+  // Contrôles segmentés (Garder audible, Qualité) : un seul actif par groupe.
+  document.querySelectorAll(".segmented").forEach((group) => {
+    group.querySelectorAll(".seg").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        group.querySelectorAll(".seg").forEach((s) => s.classList.remove("active"));
+        btn.classList.add("active");
+      });
     });
   });
 

@@ -162,7 +162,9 @@ body {
   font-family: inherit;
   cursor: pointer;
   width: 100%;
-  transition: transform 0.08s ease, opacity 0.15s ease;
+  text-align: center;
+  user-select: none;
+  transition: transform 0.08s ease, opacity 0.15s ease, filter 0.15s ease;
 }
 .btn:active { transform: translateY(1px); }
 .btn-cta, .btn-primary {
@@ -170,14 +172,16 @@ body {
   color: #fff;
   box-shadow: 0 6px 18px rgba(124, 92, 246, 0.4);
 }
-.btn-cta:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.btn-cta:hover, .btn-primary:hover { filter: brightness(1.08); }
 .btn-ghost {
   background: var(--card);
   color: var(--muted);
   border: 1px solid var(--border);
 }
-.btn-ghost:hover { color: var(--text); }
-.btn-ghost:disabled { opacity: 0.5; cursor: default; }
+.btn-ghost:hover { color: var(--text); border-color: rgba(140, 120, 255, 0.35); }
+
+.is-disabled { opacity: 0.45; pointer-events: none; cursor: default; }
+.btn-cta.is-disabled { box-shadow: none; }
 
 /* Progress */
 .progress {

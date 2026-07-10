@@ -93,12 +93,13 @@ const Backend = (() => {
    * extrait la plage [start, end] avec ffmpeg puis sépare. Isole le clip
    * sélectionné (pas le mix de la séquence). Sépare toujours les deux stems.
    */
-  async function separateClip(mediaPath, start, end, onProgress) {
+  async function separateClip(mediaPath, start, end, model, onProgress) {
     const form = new FormData();
     form.append("media_path", mediaPath);
     form.append("start", String(start));
     form.append("end", String(end));
     form.append("stems", "both");
+    form.append("model", model || "kim_vocal_2");
 
     const res = await fetch(`${BASE}/separate_clip`, { method: "POST", body: form });
     if (!res.ok) {

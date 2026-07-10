@@ -20,10 +20,12 @@ from pathlib import Path
 
 # Modèles UVR (noms tels qu'attendus par audio-separator).
 MODELS = {
-    # rapide, défaut
+    # Rapide (MDX-Net / ONNX)
     "kim_vocal_2": "Kim_Vocal_2.onnx",
-    # qualité supérieure (plus lent, plus lourd) — RoFormer
-    "roformer": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+    # Qualité max — MelBand RoFormer (état de l'art voix, plus lent, nécessite torch)
+    "mel_roformer": "vocals_mel_band_roformer.ckpt",
+    # Alternative BS-RoFormer
+    "bs_roformer": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
 }
 
 _SEPARATORS: dict[str, object] = {}
@@ -117,7 +119,17 @@ def separate(
         return None
 
     vocals_src = _find("(vocals)") or _find("vocals")
-    noise_src = _find("(instrumental)") or _find("instrumental")
+    # Le stem "non-voix" : selon le modèle il s'appelle (Instrumental), (Other),
+    # (No Other)… -> on prend les marqueurs connus, sinon l'AUTRE fichier produit.
+    noise_src = (
+        _find("(instrumental)")
+        or _find("instrumental")
+        or _find("(other)")
+        or next(
+            (p for p in produced_paths if p != vocals_src and os.path.exists(p)),
+            None,
+        )
+    )
 
     out: dict[str, str] = {}
 
