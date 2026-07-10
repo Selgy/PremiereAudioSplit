@@ -32,10 +32,10 @@
   }
   function readQuality() {
     const v =
-      els.quality.selected || els.quality.getAttribute("selected") || "kim_vocal_2";
+      els.quality.selected || els.quality.getAttribute("selected") || "mel_roformer";
     return ["kim_vocal_2", "mel_roformer", "bs_roformer"].includes(v)
       ? v
-      : "kim_vocal_2";
+      : "mel_roformer";
   }
   function readMute() {
     if (els.mute.checked !== undefined && els.mute.checked !== null)
