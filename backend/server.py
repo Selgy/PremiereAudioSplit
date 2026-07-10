@@ -57,6 +57,28 @@ WORK_ROOT = Path(tempfile.gettempdir()) / "premiere-audio-split"
 WORK_ROOT.mkdir(parents=True, exist_ok=True)
 
 
+# Déclencheur externe (Stream Deck : GET en arrière-plan sur /trigger).
+# Le backend ne parle pas à Premiere -> il pose un drapeau que le panneau relève.
+_trigger_pending = False
+
+
+@app.get("/trigger")
+def trigger():
+    """Stream Deck appelle ceci -> met la séparation en file pour le panneau."""
+    global _trigger_pending
+    _trigger_pending = True
+    return {"ok": True, "queued": True}
+
+
+@app.get("/trigger/poll")
+def trigger_poll():
+    """Le panneau relève et remet à zéro le drapeau."""
+    global _trigger_pending
+    p = _trigger_pending
+    _trigger_pending = False
+    return {"pending": p}
+
+
 @app.get("/health")
 def health():
     return {

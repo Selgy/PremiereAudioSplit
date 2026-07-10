@@ -126,5 +126,19 @@ const Backend = (() => {
     }
   }
 
-  return { health, separate, separateClip, autostart, waitUntilReady, BASE };
+  /* Relève le drapeau de déclenchement externe (Stream Deck). */
+  async function pollTrigger() {
+    try {
+      const res = await fetch(`${BASE}/trigger/poll`);
+      if (!res.ok) return false;
+      const body = await res.json();
+      return !!body.pending;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  return {
+    health, separate, separateClip, pollTrigger, autostart, waitUntilReady, BASE,
+  };
 })();

@@ -49,6 +49,7 @@
   }
 
   let backendReady = false;
+  let running = false;
 
   function setBackendState(state, label) {
     els.statusEl.className = `status status--${state}`;
@@ -126,6 +127,8 @@
   }
 
   async function run() {
+    if (running) return;
+    running = true;
     try {
       setBusy(true, "1/3 — Clip sélectionné…");
       const selected = await Premiere.getSelectedAudioClip();
@@ -176,6 +179,8 @@
     } catch (e) {
       AppLog.error(e && e.stack ? e.stack : String(e));
       setBusy(false, `❌ ${e.message || e}`);
+    } finally {
+      running = false;
     }
   }
 
@@ -196,6 +201,15 @@
   // Force la sélection par défaut (l'attribut selected ne suffit pas toujours).
   try { els.stem.selected = "both"; } catch (e) {}
   try { els.quality.selected = "mel_roformer"; } catch (e) {}
+
+  // Déclenchement externe (Stream Deck) : on relève le drapeau backend ~1x/s.
+  setInterval(async () => {
+    if (!backendReady || running) return;
+    if (await Backend.pollTrigger()) {
+      AppLog.info("Déclenché via Stream Deck.");
+      run();
+    }
+  }, 1200);
 
   // Vérification au démarrage.
   checkBackend();
