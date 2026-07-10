@@ -193,6 +193,10 @@
     els.log.classList.toggle("collapsed");
   });
 
+  // Force la sélection par défaut (l'attribut selected ne suffit pas toujours).
+  try { els.stem.selected = "both"; } catch (e) {}
+  try { els.quality.selected = "mel_roformer"; } catch (e) {}
+
   // Vérification au démarrage.
   checkBackend();
 })();

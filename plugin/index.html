@@ -7,14 +7,6 @@
   <body>
     <div class="app">
       <header class="topbar">
-        <div class="brand">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
-            </svg>
-          </div>
-          <span class="brand-title">Audio Split</span>
-        </div>
         <div id="backend-status" class="status status--unknown">
           <span class="dot"></span><span id="backend-label">…</span>
         </div>
@@ -29,7 +21,7 @@
       <div class="field">
         <sp-detail class="label">GARDER AUDIBLE</sp-detail>
         <sp-radio-group id="stem-select" selected="both" name="stem">
-          <sp-radio value="both">Les deux</sp-radio>
+          <sp-radio value="both" checked>Les deux</sp-radio>
           <sp-radio value="vocals">Voix</sp-radio>
           <sp-radio value="no_vocals">Bruit de fond</sp-radio>
         </sp-radio-group>
@@ -39,7 +31,7 @@
         <sp-detail class="label">QUALITÉ</sp-detail>
         <sp-radio-group id="quality-select" selected="mel_roformer" name="quality">
           <sp-radio value="kim_vocal_2">Rapide (Kim Vocal 2)</sp-radio>
-          <sp-radio value="mel_roformer">Max (MelBand RoFormer)</sp-radio>
+          <sp-radio value="mel_roformer" checked>Max (MelBand RoFormer)</sp-radio>
         </sp-radio-group>
       </div>
 
