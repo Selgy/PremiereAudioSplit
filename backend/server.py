@@ -136,47 +136,80 @@ async def separate_clip_endpoint(
     job_id = uuid.uuid4().hex[:12]
     job_dir = WORK_ROOT / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
-    clip_wav = job_dir / "clip.wav"
 
     ff = shutil.which("ffmpeg") or "ffmpeg"
-    cmd = [
-        ff, "-y", "-ss", str(start), "-i", media_path, "-t", str(dur),
-        "-vn", "-acodec", "pcm_s16le", "-ar", "48000", "-ac", "2", str(clip_wav),
-    ]
+
+    def _ff(args):
+        subprocess.run([ff, "-y", *args], check=True, capture_output=True)
+
+    raw = job_dir / "clip_raw.wav"
+    clip_wav = job_dir / "clip.wav"
+    # 1) Extrait la plage du clip.
     print(f"[clip] ffmpeg extract start={start} dur={dur} <- {media_path}", flush=True)
     try:
-        subprocess.run(cmd, check=True, capture_output=True)
+        _ff(["-ss", str(start), "-i", media_path, "-t", str(dur),
+             "-vn", "-acodec", "pcm_s16le", "-ar", "48000", "-ac", "2", str(raw)])
     except FileNotFoundError:
         return JSONResponse(status_code=500, content={"error": "ffmpeg introuvable"})
     except subprocess.CalledProcessError as e:
         err = (e.stderr or b"").decode(errors="ignore")[-500:]
         return JSONResponse(status_code=500, content={"error": "ffmpeg: " + err})
 
+    # 2) Les modèles échouent sur les clips très courts -> on complète au silence
+    #    jusqu'à MIN_DUR, puis on retaillera les stems à la durée d'origine.
+    MIN_DUR = 3.0
+    padded = dur < MIN_DUR
+    if padded:
+        try:
+            _ff(["-i", str(raw), "-af", f"apad=whole_dur={MIN_DUR}",
+                 "-acodec", "pcm_s16le", str(clip_wav)])
+        except subprocess.CalledProcessError as e:
+            err = (e.stderr or b"").decode(errors="ignore")[-500:]
+            return JSONResponse(status_code=500, content={"error": "ffmpeg apad: " + err})
+    else:
+        clip_wav = raw
+
     try:
         result = sep.separate(str(clip_wav), str(job_dir), stems=stems, model_key=model)
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-    # Enregistre les stems À CÔTÉ du média d'origine (pas dans le dossier temp).
+    if not result.get("files"):
+        return JSONResponse(
+            status_code=500,
+            content={"error": "La séparation n'a produit aucun stem (clip trop court/silencieux ?)."},
+        )
+
+    # Écrit les stems À CÔTÉ du média (retaillés à la durée d'origine si padding).
     media_dir = os.path.dirname(media_path)
     stem_name = os.path.splitext(os.path.basename(media_path))[0]
     labels = {"vocals": "Voix", "no_vocals": "Bruit"}
     final_files = {}
+    durations = {"input": dur}
     for key, path in result["files"].items():
         dst = os.path.join(media_dir, f"{stem_name} - {labels.get(key, key)}.wav")
         try:
-            shutil.copyfile(path, dst)
+            if padded:
+                _ff(["-i", path, "-t", str(dur), "-acodec", "pcm_s16le", dst])
+            else:
+                shutil.copyfile(path, dst)
             final_files[key] = dst
-            print(f"[clip] stem écrit : {dst}", flush=True)
         except Exception as e:  # noqa: BLE001
-            print(f"[clip] copie à côté du média échouée ({dst}): {e}", flush=True)
-            final_files[key] = path  # repli sur le fichier temp
+            print(f"[clip] écriture à côté du média échouée ({dst}): {e}", flush=True)
+            # repli : garde le fichier temp (retaillé si besoin)
+            if padded:
+                trimmed = str(job_dir / f"{key}_trim.wav")
+                try:
+                    _ff(["-i", path, "-t", str(dur), "-acodec", "pcm_s16le", trimmed])
+                    final_files[key] = trimmed
+                except Exception:
+                    final_files[key] = path
+            else:
+                final_files[key] = path
+        durations[key] = sep._duration(final_files[key])
+        print(f"[clip] stem: {final_files[key]} ({durations[key]}s)", flush=True)
 
-    return {
-        "jobId": job_id,
-        "files": final_files,
-        "durations": result.get("durations", {}),
-    }
+    return {"jobId": job_id, "files": final_files, "durations": durations}
 
 
 def _port_in_use(host: str, port: int) -> bool:

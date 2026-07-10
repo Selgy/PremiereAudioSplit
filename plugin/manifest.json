@@ -15,9 +15,9 @@
       "type": "panel",
       "id": "audioSplitPanel",
       "label": { "default": "Audio Split" },
-      "minimumSize": { "width": 260, "height": 320 },
-      "preferredDockedSize": { "width": 320, "height": 480 },
-      "preferredFloatingSize": { "width": 360, "height": 520 }
+      "minimumSize": { "width": 300, "height": 440 },
+      "preferredDockedSize": { "width": 360, "height": 600 },
+      "preferredFloatingSize": { "width": 380, "height": 640 }
     }
   ],
   "requiredPermissions": {
