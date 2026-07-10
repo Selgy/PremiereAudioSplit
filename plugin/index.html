@@ -13,70 +13,49 @@
               <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
             </svg>
           </div>
-          <div class="brand-name">Audio Split</div>
+          <span class="brand-title">Audio Split</span>
         </div>
-        <div id="backend-status" class="pill pill--unknown">
+        <div id="backend-status" class="status status--unknown">
           <span class="dot"></span><span id="backend-label">…</span>
         </div>
       </header>
 
-      <div id="install-card" class="card card--warn" style="display:none">
-        <div class="card-title">Moteur non installé</div>
-        <div class="card-desc">
-          Installe le moteur une fois. Il démarrera ensuite automatiquement.
-        </div>
-        <div id="btn-install" class="btn btn-primary">Installer le moteur</div>
-        <a id="install-help" class="link" href="#">Aide / installation manuelle</a>
+      <div id="install-card" class="install" style="display:none">
+        <sp-body size="S">Moteur non installé. Installe-le une fois — il démarrera ensuite tout seul.</sp-body>
+        <sp-button id="btn-install" variant="cta">Installer le moteur</sp-button>
+        <sp-link id="install-help" href="#">Aide / installation manuelle</sp-link>
       </div>
 
-      <div class="card">
-        <div class="field">
-          <div class="card-label">Garder audible</div>
-          <div class="segmented" id="stem-select">
-            <div class="seg-indicator"></div>
-            <div class="seg active" data-value="both">Les deux</div>
-            <div class="seg" data-value="vocals">Voix</div>
-            <div class="seg" data-value="no_vocals">Bruit</div>
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="card-label">Qualité</div>
-          <div class="segmented" id="quality-select">
-            <div class="seg-indicator"></div>
-            <div class="seg active" data-value="kim_vocal_2">Rapide</div>
-            <div class="seg" data-value="mel_roformer">Max</div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="row-text">
-            <div class="row-title">Muter l'audio d'origine</div>
-            <div class="row-sub">Désactive le clip source</div>
-          </div>
-          <div id="mute-toggle" class="toggle on" data-on="true" role="switch">
-            <span class="knob"></span>
-          </div>
-        </div>
+      <div class="field">
+        <sp-detail class="label">GARDER AUDIBLE</sp-detail>
+        <sp-radio-group id="stem-select" selected="both" name="stem">
+          <sp-radio value="both">Les deux</sp-radio>
+          <sp-radio value="vocals">Voix</sp-radio>
+          <sp-radio value="no_vocals">Bruit de fond</sp-radio>
+        </sp-radio-group>
       </div>
 
-      <div id="btn-run" class="btn btn-cta is-disabled">Séparer la voix</div>
-
-      <div id="progress" class="progress" style="display:none"><div class="bar"></div></div>
-      <div id="status-text" class="status-text">
-        Sélectionne un clip audio dans la timeline.
+      <div class="field">
+        <sp-detail class="label">QUALITÉ</sp-detail>
+        <sp-radio-group id="quality-select" selected="kim_vocal_2" name="quality">
+          <sp-radio value="kim_vocal_2">Rapide (Kim Vocal 2)</sp-radio>
+          <sp-radio value="mel_roformer">Max (MelBand RoFormer)</sp-radio>
+        </sp-radio-group>
       </div>
 
-      <div id="btn-check" class="btn btn-ghost">Vérifier le backend</div>
+      <sp-checkbox id="mute-original" checked>Muter l'audio d'origine</sp-checkbox>
+
+      <sp-button id="btn-run" variant="cta" disabled>Séparer la voix</sp-button>
+
+      <sp-progressbar id="progress" indeterminate max="100" style="display:none"></sp-progressbar>
+      <sp-body size="S" id="status-text">Sélectionne un clip audio dans la timeline.</sp-body>
+
+      <sp-button id="btn-check" variant="secondary" quiet>Vérifier le backend</sp-button>
 
       <div class="log-card">
-        <div id="log-toggle" class="log-head">
-          <span>Journal</span><span class="chev">▾</span>
-        </div>
+        <sp-link id="log-toggle">Journal</sp-link>
         <pre id="log" class="log collapsed"></pre>
       </div>
-
-      <div class="footer">Audio Split • fait avec 💜</div>
     </div>
 
     <script src="src/log.js"></script>

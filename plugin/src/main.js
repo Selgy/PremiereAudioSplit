@@ -1,20 +1,19 @@
 /*
- * Orchestration UI : câble les boutons, gère l'état du backend, et enchaîne
- * export -> séparation -> réimport.
+ * Orchestration UI (widgets Spectrum sp-*) : câble les contrôles, gère l'état
+ * du backend, et enchaîne clip sélectionné -> extraction/séparation -> réimport.
  */
 (() => {
   const byId = (id) => document.getElementById(id);
   const els = {
     check: byId("btn-check"),
     run: byId("btn-run"),
-    stemSeg: byId("stem-select"),
-    qualitySeg: byId("quality-select"),
-    muteToggle: byId("mute-toggle"),
-    statusPill: byId("backend-status"),
+    stem: byId("stem-select"),
+    quality: byId("quality-select"),
+    mute: byId("mute-original"),
+    statusEl: byId("backend-status"),
     statusLabel: byId("backend-label"),
     statusText: byId("status-text"),
     progress: byId("progress"),
-    progressBar: document.querySelector("#progress .bar"),
     installCard: byId("install-card"),
     install: byId("btn-install"),
     installHelp: byId("install-help"),
@@ -26,81 +25,43 @@
     els.installCard.style.display = show ? "flex" : "none";
   }
 
-  // UXP n'a pas de transition/animation CSS : on anime en JS une propriété
-  // numérique (left/width/opacity) avec un easing.
-  function animateProp(el, prop, to, unit, dur) {
-    const from = parseFloat(el.style[prop]) || 0;
-    const start = Date.now();
-    (function tick() {
-      const t = Math.min(1, (Date.now() - start) / dur);
-      const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      el.style[prop] = from + (to - from) * e + unit;
-      if (t < 1) setTimeout(tick, 16);
-    })();
-  }
-
-  // Contrôle segmenté : la valeur = data-value du bouton actif.
+  // Lecture des contrôles Spectrum (propriété -> attribut -> défaut).
   function readStem() {
-    const active = els.stemSeg.querySelector(".seg.active");
-    const v = active ? active.dataset.value : "both";
+    const v = els.stem.selected || els.stem.getAttribute("selected") || "both";
     return ["vocals", "no_vocals", "both"].includes(v) ? v : "both";
   }
-  // Toggle : data-on = "true"/"false".
-  function readMute() {
-    return els.muteToggle.dataset.on !== "false";
-  }
-  // Qualité -> nom du modèle backend.
   function readQuality() {
-    const active = els.qualitySeg.querySelector(".seg.active");
-    const v = active ? active.dataset.value : "kim_vocal_2";
+    const v =
+      els.quality.selected || els.quality.getAttribute("selected") || "kim_vocal_2";
     return ["kim_vocal_2", "mel_roformer", "bs_roformer"].includes(v)
       ? v
       : "kim_vocal_2";
   }
+  function readMute() {
+    if (els.mute.checked !== undefined && els.mute.checked !== null)
+      return !!els.mute.checked;
+    return els.mute.hasAttribute("checked");
+  }
 
-  // Progression. UXP ne supporte pas les animations CSS -> pulse piloté en JS.
-  let pulseTimer = null;
-  function startPulse() {
-    stopPulse();
-    let w = 8, dir = 1;
-    els.progressBar.style.width = w + "%";
-    pulseTimer = setInterval(() => {
-      w += dir * 7;
-      if (w >= 92) { w = 92; dir = -1; }
-      else if (w <= 8) { w = 8; dir = 1; }
-      els.progressBar.style.width = w + "%";
-    }, 110);
-  }
-  function stopPulse() {
-    if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
-  }
   function setProgress(pct) {
-    stopPulse();
-    els.progressBar.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    els.progress.removeAttribute("indeterminate");
+    els.progress.value = Math.max(0, Math.min(100, pct));
   }
-
-  // Les "boutons" sont des <div> (UXP impose son chrome aux <button>) : on gère
-  // l'état désactivé via une classe.
-  function setDisabled(el, disabled) {
-    el.classList.toggle("is-disabled", !!disabled);
-  }
-  const isDisabled = (el) => el.classList.contains("is-disabled");
 
   let backendReady = false;
 
   function setBackendState(state, label) {
-    els.statusPill.className = `pill pill--${state}`;
+    els.statusEl.className = `status status--${state}`;
     els.statusLabel.textContent = label;
     backendReady = state === "ok";
-    setDisabled(els.run, !backendReady);
+    els.run.disabled = !backendReady;
   }
 
   function setBusy(busy, text) {
     els.progress.style.display = busy ? "block" : "none";
-    if (busy) startPulse();
-    else stopPulse();
-    setDisabled(els.run, busy || !backendReady);
-    setDisabled(els.check, busy);
+    if (busy) els.progress.setAttribute("indeterminate", "");
+    els.run.disabled = busy || !backendReady;
+    els.check.disabled = busy;
     if (text) els.statusText.textContent = text;
   }
 
@@ -119,8 +80,6 @@
           els.statusText.textContent = `Démarrage du moteur… (${n})`;
         });
       } else {
-        // openExternal a échoué -> le schéma audiosplit:// n'est pas enregistré
-        // -> le moteur n'est pas installé.
         notInstalled = true;
         AppLog.warn("Schéma audiosplit:// indisponible : moteur non installé.");
       }
@@ -149,7 +108,7 @@
   // Bouton « Installer le moteur » : télécharge l'installeur et ouvre le dossier.
   async function installEngine() {
     try {
-      setDisabled(els.install, true);
+      els.install.disabled = true;
       setBusy(true, "Téléchargement de l'installeur du moteur…");
       const { folder } = await Installer.downloadInstaller((pct, msg) => {
         setProgress(pct);
@@ -162,19 +121,17 @@
       AppLog.error(e && e.stack ? e.stack : String(e));
       setBusy(false, `❌ ${e.message || e}`);
     } finally {
-      setDisabled(els.install, false);
+      els.install.disabled = false;
     }
   }
 
   async function run() {
     try {
       setBusy(true, "1/3 — Clip sélectionné…");
-      // Tout est piloté par le clip audio sélectionné.
       const selected = await Premiere.getSelectedAudioClip();
       const src = await Premiere.getClipAudioSource(selected);
 
       setBusy(true, "2/3 — Extraction + séparation (GPU)…");
-      // On sépare TOUJOURS les deux ; le picker choisit lequel reste audible.
       const keep = readStem();
       const model = readQuality();
       const result = await Backend.separateClip(
@@ -206,8 +163,6 @@
 
       setBusy(true, "3/3 — Réimport dans la timeline…");
       const muteOriginal = readMute();
-      // Placement à la position du clip, juste en dessous. Les deux stems sont
-      // importés ; `keep` détermine lequel reste audible (l'autre est muté).
       await Premiere.placeStems(
         result.files,
         selected.startTime,
@@ -224,15 +179,9 @@
     }
   }
 
-  els.check.addEventListener("click", () => {
-    if (!isDisabled(els.check)) checkBackend();
-  });
-  els.run.addEventListener("click", () => {
-    if (!isDisabled(els.run)) run();
-  });
-  els.install.addEventListener("click", () => {
-    if (!isDisabled(els.install)) installEngine();
-  });
+  els.check.addEventListener("click", () => checkBackend());
+  els.run.addEventListener("click", run);
+  els.install.addEventListener("click", installEngine);
   els.installHelp.addEventListener("click", (e) => {
     e.preventDefault();
     require("uxp").shell.openExternal(
@@ -240,47 +189,6 @@
       "Ouverture de l'aide d'installation"
     );
   });
-
-  // Contrôles segmentés : pastille (indicateur) qui coulisse vers l'actif.
-  document.querySelectorAll(".segmented").forEach((group) => {
-    const segs = Array.from(group.querySelectorAll(".seg"));
-    const ind = group.querySelector(".seg-indicator");
-    const n = segs.length;
-    const w = 100 / n;
-    ind.style.width = w + "%";
-    let activeIdx = segs.findIndex((s) => s.classList.contains("active"));
-    if (activeIdx < 0) activeIdx = 0;
-    ind.style.left = activeIdx * w + "%";
-    segs.forEach((seg, i) => {
-      seg.addEventListener("click", () => {
-        segs.forEach((s) => s.classList.remove("active"));
-        seg.classList.add("active");
-        animateProp(ind, "left", i * w, "%", 220);
-      });
-    });
-  });
-
-  // Toggle « Muter l'audio d'origine » : knob animé.
-  (function initToggle() {
-    const knob = els.muteToggle.querySelector(".knob");
-    const on0 = els.muteToggle.dataset.on !== "false";
-    knob.style.left = (on0 ? 23 : 3) + "px";
-    els.muteToggle.addEventListener("click", () => {
-      const now = els.muteToggle.dataset.on === "false"; // bascule
-      els.muteToggle.dataset.on = now.toString();
-      els.muteToggle.classList.toggle("on", now);
-      animateProp(knob, "left", now ? 23 : 3, "px", 160);
-    });
-  })();
-
-  // Fondu à l'ouverture.
-  (function fadeIn() {
-    const app = document.querySelector(".app");
-    app.style.opacity = "0";
-    setTimeout(() => animateProp(app, "opacity", 1, "", 320), 30);
-  })();
-
-  // Journal repliable.
   els.logToggle.addEventListener("click", () => {
     els.log.classList.toggle("collapsed");
   });
