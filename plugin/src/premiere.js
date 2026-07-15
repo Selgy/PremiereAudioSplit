@@ -179,6 +179,11 @@ const Premiere = (() => {
     const { project, seq: seq0 } = await getActiveSequence();
     AppLog.info(`[place] placement à ${secs(atTime)}s | stems demandés : ${order.join(", ")}`);
 
+    // Capture le temps en ticks (string précis) MAINTENANT (atTime encore valide)
+    // pour recréer une TickTime FRAÎCHE avant la transaction (l'objet se périme).
+    let atTicks = null;
+    try { atTicks = atTime.ticks; } catch (e) {}
+
     // Juste en dessous du clip sélectionné (index+1, +2). Si l'index dépasse le
     // nombre de pistes, createOverwriteItemAction en crée une nouvelle.
     const base = selected ? selected.trackIndex + 1 : await seq0.getAudioTrackCount();
@@ -201,20 +206,24 @@ const Premiere = (() => {
     }
     if (toPlace.length === 0) throw new Error("Aucun stem à placer.");
 
-    // 1) PLACEMENT. Les réf ProjectItem se périment à chaque getItems() : on les
-    //    résout par ID en TOUT DERNIER, sans aucun await avant executeTransaction.
+    // 1) PLACEMENT. Toutes les réf UXP se périment à travers les await : on
+    //    ré-acquiert tout au dernier moment, et on recrée une TickTime FRAÎCHE.
     const { seq } = await getActiveSequence();
-    const editor = await ppro.SequenceEditor.getEditor(seq);
     const root = await project.getRootItem();
+    const editor = await ppro.SequenceEditor.getEditor(seq);
     const byId = {};
     for (const it of await root.getItems()) byId[it.getId()] = it; // dernier await
+    const placeTime =
+      atTicks && ppro.TickTime && ppro.TickTime.createWithTicks
+        ? ppro.TickTime.createWithTicks(atTicks)
+        : atTime;
     const ok = project.executeTransaction((compound) => {
       for (const { key, id, audioTrackIndex } of toPlace) {
         const item = byId[id];
         if (!item) throw new Error(`ProjectItem introuvable (${key}, id=${id})`);
         // (projectItem, time, videoTrackIndex, audioTrackIndex)
         compound.addAction(
-          editor.createOverwriteItemAction(item, atTime, 0, audioTrackIndex)
+          editor.createOverwriteItemAction(item, placeTime, 0, audioTrackIndex)
         );
       }
     });
