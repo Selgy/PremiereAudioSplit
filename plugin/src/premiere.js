@@ -182,7 +182,9 @@ const Premiere = (() => {
     // Capture le temps en ticks (string précis) MAINTENANT (atTime encore valide)
     // pour recréer une TickTime FRAÎCHE avant la transaction (l'objet se périme).
     let atTicks = null;
+    let atSec = null;
     try { atTicks = atTime.ticks; } catch (e) {}
+    try { atSec = secs(atTime); } catch (e) {}
 
     // Juste en dessous du clip sélectionné (index+1, +2). Si l'index dépasse le
     // nombre de pistes, createOverwriteItemAction en crée une nouvelle.
@@ -263,24 +265,36 @@ const Premiere = (() => {
       }
     }
 
-    // Mute la piste du stem NON gardé (les deux sont toujours importés).
+    // Désactive le CLIP du stem NON gardé (pas la piste entière : elle peut
+    // contenir d'autres clips). Le clip stem est à (piste cible, temps de place).
     const trackByKey = {};
     for (const t of toPlace) trackByKey[t.key] = t.audioTrackIndex;
 
-    async function muteStemTrack(idx, label) {
+    async function disableStemClip(trackIndex, label) {
       try {
-        const tr = await seq.getAudioTrack(idx);
-        await tr.setMute(true);
-        AppLog.info(`[place] piste A${idx + 1} (${label}) mutée`);
+        const { seq: s } = await getActiveSequence();
+        const clip = await findClipAt(s, trackIndex, atSec); // dernier await
+        if (!clip) {
+          AppLog.warn(`[place] stem "${label}" introuvable (A${trackIndex + 1}) pour mute`);
+          return;
+        }
+        const doDis = () =>
+          project.executeTransaction(
+            (c) => c.addAction(clip.createSetDisabledAction(true)),
+            "Audio Split — mute stem"
+          );
+        if (project.lockedAccess) project.lockedAccess(doDis);
+        else doDis();
+        AppLog.info(`[place] stem "${label}" désactivé (A${trackIndex + 1})`);
       } catch (e) {
-        AppLog.warn(`[place] mute piste ${idx} échoué : ${e}`);
+        AppLog.warn(`[place] désactivation stem "${label}" échouée : ${e}`);
       }
     }
 
     if (keep === "vocals" && trackByKey.no_vocals != null) {
-      await muteStemTrack(trackByKey.no_vocals, "bruit");
+      await disableStemClip(trackByKey.no_vocals, "bruit");
     } else if (keep === "no_vocals" && trackByKey.vocals != null) {
-      await muteStemTrack(trackByKey.vocals, "voix");
+      await disableStemClip(trackByKey.vocals, "voix");
     } else {
       AppLog.info("[place] les deux stems restent audibles");
     }
