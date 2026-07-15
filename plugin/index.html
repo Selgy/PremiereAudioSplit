@@ -44,6 +44,20 @@
 
       <sp-button id="btn-check" variant="secondary" quiet>Vérifier le backend</sp-button>
 
+      <div class="settings-card">
+        <sp-link id="settings-toggle">⚙ Réglages / Stream Deck</sp-link>
+        <div id="settings-body" class="settings-body collapsed">
+          <sp-detail class="label">Déclencheur HTTP (GET)</sp-detail>
+          <sp-textfield id="trigger-url" readonly value="http://localhost:8765/trigger"></sp-textfield>
+          <sp-button id="btn-copy" variant="secondary" quiet>Copier l'URL</sp-button>
+          <sp-body size="XS" class="hint">
+            Stream Deck : bouton <b>Système › Site Web</b>, colle cette URL, coche
+            <b>Requête GET en arrière-plan</b>. Un appui lance la séparation sur le
+            clip sélectionné (le panneau doit rester ouvert).
+          </sp-body>
+        </div>
+      </div>
+
       <div class="log-card">
         <sp-link id="log-toggle">Journal</sp-link>
         <pre id="log" class="log collapsed"></pre>

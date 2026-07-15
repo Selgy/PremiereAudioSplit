@@ -22,6 +22,7 @@
   ],
   "requiredPermissions": {
     "localFileSystem": "fullAccess",
+    "clipboard": "readAndWrite",
     "network": {
       "domains": "all"
     },

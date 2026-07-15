@@ -51,8 +51,15 @@ sp-progressbar { width: 100%; }
   border-radius: 8px;
 }
 
+/* Settings */
+.settings-card { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.settings-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.settings-body.collapsed { display: none; }
+.settings-body sp-textfield { width: 100%; }
+.hint { opacity: 0.75; line-height: 1.4; }
+
 /* Log */
-.log-card { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.log-card { display: flex; flex-direction: column; gap: 6px; }
 .log {
   max-height: 150px;
   overflow: auto;

@@ -19,7 +19,30 @@
     installHelp: byId("install-help"),
     logToggle: byId("log-toggle"),
     log: byId("log"),
+    settingsToggle: byId("settings-toggle"),
+    settingsBody: byId("settings-body"),
+    copy: byId("btn-copy"),
+    triggerUrl: byId("trigger-url"),
   };
+
+  const TRIGGER_URL = "http://localhost:8765/trigger";
+
+  async function copyToClipboard(text) {
+    const cb = navigator.clipboard;
+    try {
+      if (cb && cb.setContent) {
+        await cb.setContent({ "text/plain": text });
+        return true;
+      }
+    } catch (e) {}
+    try {
+      if (cb && cb.writeText) {
+        await cb.writeText(text);
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
 
   function showInstallCard(show) {
     els.installCard.style.display = show ? "flex" : "none";
@@ -50,7 +73,6 @@
 
   let backendReady = false;
   let running = false;
-  let modelDefaulted = false;
 
   function setBackendState(state, label) {
     els.statusEl.className = `status status--${state}`;
@@ -90,13 +112,6 @@
     if (h.ok) {
       setBackendState("ok", `Prêt (${h.device || "cpu"})`);
       showInstallCard(false);
-      // Défaut modèle selon le matériel : GPU -> Max, sinon Rapide (RoFormer
-      // très lent en CPU). L'utilisateur peut toujours changer.
-      if (!modelDefaulted) {
-        modelDefaulted = true;
-        const def = h.device === "cuda" ? "mel_roformer" : "kim_vocal_2";
-        try { els.quality.selected = def; } catch (e) {}
-      }
       els.statusText.textContent =
         "Prêt. Sélectionne un clip audio dans la timeline.";
       AppLog.info("Backend OK", h);
@@ -204,6 +219,15 @@
   });
   els.logToggle.addEventListener("click", () => {
     els.log.classList.toggle("collapsed");
+  });
+  els.settingsToggle.addEventListener("click", () => {
+    els.settingsBody.classList.toggle("collapsed");
+  });
+  els.copy.addEventListener("click", async () => {
+    const ok = await copyToClipboard(TRIGGER_URL);
+    els.statusText.textContent = ok
+      ? "URL du déclencheur copiée ✅"
+      : `Copie impossible — URL : ${TRIGGER_URL}`;
   });
 
   // Force la sélection par défaut (l'attribut selected ne suffit pas toujours).
