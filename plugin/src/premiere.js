@@ -75,9 +75,8 @@ const Premiere = (() => {
     return { mediaPath, start, end };
   }
 
-  /* Récupère le clip audio SÉLECTIONNÉ (scan des pistes). Lève si aucun. */
-  async function getSelectedAudioClip() {
-    const { seq } = await getActiveSequence();
+  /* Scan des pistes audio -> premier clip sélectionné (ou null). */
+  async function scanSelectedAudioClip(seq, verbose) {
     const CLIP =
       (ppro.Constants &&
         ppro.Constants.TrackItemType &&
@@ -88,7 +87,7 @@ const Premiere = (() => {
     for (let i = 0; i < count; i++) {
       const track = await seq.getAudioTrack(i);
       const items = await track.getTrackItems(CLIP, false);
-      AppLog.info(`[sel] piste A${i + 1} (index ${i}) : ${items.length} clip(s)`);
+      if (verbose) AppLog.info(`[sel] piste A${i + 1} (index ${i}) : ${items.length} clip(s)`);
       for (const it of items) {
         if (await it.getIsSelected()) {
           let name = "";
@@ -99,20 +98,31 @@ const Premiere = (() => {
           try { start = await it.getStartTime(); } catch (e) {}
           try { end = await it.getEndTime(); } catch (e) {}
           try { dur = await it.getDuration(); } catch (e) {}
-          AppLog.info(
-            `[sel] CLIP SÉLECTIONNÉ : "${name}" | piste A${i + 1} (index ${i}) | ` +
-              `début ${secs(start)}s | fin ${secs(end)}s | durée ${secs(dur)}s`
-          );
+          if (verbose)
+            AppLog.info(
+              `[sel] CLIP SÉLECTIONNÉ : "${name}" | piste A${i + 1} (index ${i}) | ` +
+                `début ${secs(start)}s | fin ${secs(end)}s | durée ${secs(dur)}s`
+            );
           return { clip: it, trackIndex: i, startTime: start, endTime: end };
         }
       }
     }
-    throw new Error("Sélectionne un clip audio dans la timeline.");
+    return null;
+  }
+
+  /* Récupère le clip audio SÉLECTIONNÉ. Lève si aucun. */
+  async function getSelectedAudioClip() {
+    const { seq } = await getActiveSequence();
+    const sel = await scanSelectedAudioClip(seq, true);
+    if (!sel) throw new Error("Sélectionne un clip audio dans la timeline.");
+    return sel;
   }
 
   /*
-   * Importe un fichier dans le projet et renvoie le ProjectItem créé.
-   * importFiles renvoie un booléen -> on retrouve l'item par diff du bin racine.
+   * Importe un fichier dans le projet et renvoie l'ID du ProjectItem créé.
+   * (On ne garde PAS la référence : les objets ProjectItem se périment entre
+   * deux getItems() -> "script object is no longer valid". On re-résout par ID
+   * juste avant la transaction.)
    */
   async function importWav(project, wavPath) {
     const root = await project.getRootItem();
@@ -123,9 +133,10 @@ const Premiere = (() => {
     if (!ok) throw new Error("importFiles a échoué : " + wavPath);
 
     for (const it of await root.getItems()) {
-      if (!before.has(it.getId())) {
-        AppLog.info(`[import] OK -> ProjectItem id=${it.getId()}`);
-        return it;
+      const id = it.getId();
+      if (!before.has(id)) {
+        AppLog.info(`[import] OK -> ProjectItem id=${id}`);
+        return id;
       }
     }
     throw new Error("ProjectItem importé introuvable : " + wavPath);
@@ -147,20 +158,14 @@ const Premiere = (() => {
    * @param {"vocals"|"no_vocals"|"both"} keep  stem à garder audible
    */
   async function placeStems(files, atTime, order, selected, muteOriginal, keep) {
-    const { project, seq } = await getActiveSequence();
+    const { project, seq: seq0 } = await getActiveSequence();
     AppLog.info(`[place] placement à ${secs(atTime)}s | stems demandés : ${order.join(", ")}`);
 
     // Juste en dessous du clip sélectionné (index+1, +2). Si l'index dépasse le
     // nombre de pistes, createOverwriteItemAction en crée une nouvelle.
-    const base = selected ? selected.trackIndex + 1 : await seq.getAudioTrackCount();
-    const count = await seq.getAudioTrackCount();
-    AppLog.info(
-      `[place] ${count} piste(s) audio | clip sélectionné A${
-        selected ? selected.trackIndex + 1 : "?"
-      } -> stems sur A${base + 1}, A${base + 2}`
-    );
+    const base = selected ? selected.trackIndex + 1 : await seq0.getAudioTrackCount();
 
-    // Import (async) AVANT la transaction : on a besoin des ProjectItem.
+    // Import (async) AVANT la transaction : on ne garde que les IDs.
     const toPlace = [];
     let offset = 0;
     for (const key of order) {
@@ -170,29 +175,34 @@ const Premiere = (() => {
         continue;
       }
       AppLog.info(`[place] import "${key}" : ${p}`);
-      const item = await importWav(project, p);
+      const id = await importWav(project, p);
       const target = base + offset;
       AppLog.info(`[place] "${key}" -> piste audio A${target + 1} (index ${target})`);
-      toPlace.push({ key, item, audioTrackIndex: target });
+      toPlace.push({ key, id, audioTrackIndex: target });
       offset++;
     }
     if (toPlace.length === 0) throw new Error("Aucun stem à placer.");
 
+    // Ré-acquiert TOUT frais juste avant la transaction (les réf UXP se périment
+    // pendant les imports async). Aucun await entre ici et executeTransaction.
+    const { seq } = await getActiveSequence();
+    const root = await project.getRootItem();
+    const byId = {};
+    for (const it of await root.getItems()) byId[it.getId()] = it;
     const editor = await ppro.SequenceEditor.getEditor(seq);
+    const freshSel = muteOriginal ? await scanSelectedAudioClip(seq, false) : null;
 
     const ok = project.executeTransaction((compound) => {
-      for (const { item, audioTrackIndex } of toPlace) {
+      for (const { key, id, audioTrackIndex } of toPlace) {
+        const item = byId[id];
+        if (!item) throw new Error(`ProjectItem introuvable (${key}, id=${id})`);
         // (projectItem, time, videoTrackIndex, audioTrackIndex)
-        const action = editor.createOverwriteItemAction(
-          item,
-          atTime,
-          0,
-          audioTrackIndex
+        compound.addAction(
+          editor.createOverwriteItemAction(item, atTime, 0, audioTrackIndex)
         );
-        compound.addAction(action);
       }
-      if (muteOriginal && selected) {
-        compound.addAction(selected.clip.createSetDisabledAction(true));
+      if (muteOriginal && freshSel) {
+        compound.addAction(freshSel.clip.createSetDisabledAction(true));
       }
     });
 
