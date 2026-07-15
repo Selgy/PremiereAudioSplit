@@ -210,9 +210,12 @@ const Premiere = (() => {
     //    ré-acquiert tout au dernier moment, et on recrée une TickTime FRAÎCHE.
     const { seq } = await getActiveSequence();
     const root = await project.getRootItem();
+    const items = await root.getItems(); // DERNIER await
+    // À partir d'ici : TOUT est synchrone (aucune frontière de tick qui
+    // périmerait les réf). getEditor renvoie un SequenceEditor (pas une Promise).
     const byId = {};
-    for (const it of await root.getItems()) byId[it.getId()] = it;
-    const editor = await ppro.SequenceEditor.getEditor(seq); // dernier await
+    for (const it of items) byId[it.getId()] = it;
+    const editor = ppro.SequenceEditor.getEditor(seq); // sync, pas d'await
     const placeTime =
       atTicks && ppro.TickTime && ppro.TickTime.createWithTicks
         ? ppro.TickTime.createWithTicks(atTicks)
