@@ -50,6 +50,7 @@
 
   let backendReady = false;
   let running = false;
+  let modelDefaulted = false;
 
   function setBackendState(state, label) {
     els.statusEl.className = `status status--${state}`;
@@ -89,6 +90,13 @@
     if (h.ok) {
       setBackendState("ok", `Prêt (${h.device || "cpu"})`);
       showInstallCard(false);
+      // Défaut modèle selon le matériel : GPU -> Max, sinon Rapide (RoFormer
+      // très lent en CPU). L'utilisateur peut toujours changer.
+      if (!modelDefaulted) {
+        modelDefaulted = true;
+        const def = h.device === "cuda" ? "mel_roformer" : "kim_vocal_2";
+        try { els.quality.selected = def; } catch (e) {}
+      }
       els.statusText.textContent =
         "Prêt. Sélectionne un clip audio dans la timeline.";
       AppLog.info("Backend OK", h);

@@ -47,7 +47,13 @@ jobs:
         working-directory: packaging/windows
         run: |
           choco install innosetup --no-progress -y
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer.iss
+          # Copie le build vers un chemin COURT : torch a des chemins profonds
+          # qui dépassent MAX_PATH sous le dossier de build du runner.
+          $short = "C:\ase"
+          robocopy "..\dist\AudioSplitEngine" "$short" /E /NP /NFL /NDL /NJH /NJS | Out-Null
+          if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed ($LASTEXITCODE)"; exit 1 }
+          $global:LASTEXITCODE = 0
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DDistDir=$short installer.iss
           Copy-Item "Output\AudioSplit-Engine-Windows.exe" "..\dist\AudioSplit-Engine-Windows.exe"
         shell: pwsh
 

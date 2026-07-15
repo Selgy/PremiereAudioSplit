@@ -14,6 +14,7 @@ _pkgs = [
     "soundfile",
     "torch",
     "torchaudio",
+    "imageio_ffmpeg",  # binaire ffmpeg embarqué
 ]
 
 datas, binaries, hiddenimports = [], [], []

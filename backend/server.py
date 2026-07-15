@@ -30,12 +30,38 @@ if sys.stdout is None or sys.stderr is None:
     sys.stdout = _logf
     sys.stderr = _logf
 
-# audio-separator a besoin de ffmpeg. On l'embarque dans bin/ (les utilisateurs
-# finaux ne l'ont pas) et on préfixe le PATH pour que le sous-processus le trouve.
-# _MEIPASS : emplacement des données quand empaqueté par PyInstaller.
-_BIN_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "bin"
-if _BIN_DIR.is_dir():
-    os.environ["PATH"] = str(_BIN_DIR) + os.pathsep + os.environ.get("PATH", "")
+# audio-separator appelle "ffmpeg" en sous-processus. Les utilisateurs finaux ne
+# l'ont pas -> on le rend disponible sur le PATH, y compris dans le moteur packagé.
+def _ensure_ffmpeg():
+    import shutil
+
+    if shutil.which("ffmpeg"):
+        return
+    # bin/ à côté (dev) ou dans le bundle PyInstaller (_MEIPASS/bin)
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    bindir = base / "bin"
+    if bindir.is_dir():
+        os.environ["PATH"] = str(bindir) + os.pathsep + os.environ.get("PATH", "")
+        if shutil.which("ffmpeg"):
+            return
+    # binaire fourni par imageio-ffmpeg -> copie sous le nom "ffmpeg"
+    try:
+        import imageio_ffmpeg
+
+        src = imageio_ffmpeg.get_ffmpeg_exe()
+        dst_dir = _LOG_DIR / "ffbin"
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        dst = dst_dir / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        if not dst.exists():
+            shutil.copy(src, dst)
+            if os.name != "nt":
+                os.chmod(dst, 0o755)
+        os.environ["PATH"] = str(dst_dir) + os.pathsep + os.environ.get("PATH", "")
+    except Exception as e:  # noqa: BLE001
+        print(f"[ffmpeg] introuvable: {e}", flush=True)
+
+
+_ensure_ffmpeg()
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware

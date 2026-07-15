@@ -6,6 +6,11 @@
 #define AppName "AudioSplit Engine"
 #define AppVersion "0.1.0"
 #define ExeName "AudioSplitEngine.exe"
+; Dossier source du build PyInstaller. La CI passe un chemin COURT via
+; /DDistDir=... pour éviter la limite MAX_PATH (torch a des chemins profonds).
+#ifndef DistDir
+  #define DistDir "..\dist\AudioSplitEngine"
+#endif
 
 [Setup]
 AppName={#AppName}
@@ -20,7 +25,7 @@ DisableProgramGroupPage=yes
 UninstallDisplayName={#AppName}
 
 [Files]
-Source: "..\dist\AudioSplitEngine\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#DistDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Registry]
 ; Schéma d'URL custom (HKCU, pas besoin d'admin).
