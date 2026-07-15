@@ -210,9 +210,9 @@ const Premiere = (() => {
     //    ré-acquiert tout au dernier moment, et on recrée une TickTime FRAÎCHE.
     const { seq } = await getActiveSequence();
     const root = await project.getRootItem();
-    const editor = await ppro.SequenceEditor.getEditor(seq);
     const byId = {};
-    for (const it of await root.getItems()) byId[it.getId()] = it; // dernier await
+    for (const it of await root.getItems()) byId[it.getId()] = it;
+    const editor = await ppro.SequenceEditor.getEditor(seq); // dernier await
     const placeTime =
       atTicks && ppro.TickTime && ppro.TickTime.createWithTicks
         ? ppro.TickTime.createWithTicks(atTicks)
