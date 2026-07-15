@@ -208,13 +208,14 @@ const Premiere = (() => {
 
     // 1) PLACEMENT. Toutes les réf UXP se périment à travers les await : on
     //    ré-acquiert tout au dernier moment, et on recrée une TickTime FRAÎCHE.
+    // Pattern officiel (sample sequenceEditor.ts) : seq + editor d'abord, puis
+    // les ProjectItems en DERNIER await, puis executeTransaction.
     const root = await project.getRootItem();
-    const items = await root.getItems();
+    const { seq } = await getActiveSequence();
+    const editor = ppro.SequenceEditor.getEditor(seq); // sync (pas de Promise)
+    const items = await root.getItems(); // dernier await
     const byId = {};
     for (const it of items) byId[it.getId()] = it;
-    // seq en DERNIER await : l'editor est lié à seq, qui doit être frais.
-    const { seq } = await getActiveSequence();
-    const editor = ppro.SequenceEditor.getEditor(seq); // sync
     const placeTime =
       atTicks && ppro.TickTime && ppro.TickTime.createWithTicks
         ? ppro.TickTime.createWithTicks(atTicks)
