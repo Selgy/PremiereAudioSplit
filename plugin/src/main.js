@@ -66,6 +66,28 @@
     return els.mute.hasAttribute("checked");
   }
 
+  // Persistance des réglages (localStorage UXP, par plugin).
+  function saveSettings() {
+    try {
+      localStorage.setItem("as_stem", readStem());
+      localStorage.setItem("as_quality", readQuality());
+      localStorage.setItem("as_mute", readMute() ? "true" : "false");
+    } catch (e) {}
+  }
+  function loadSettings() {
+    try {
+      const s = localStorage.getItem("as_stem");
+      const q = localStorage.getItem("as_quality");
+      const m = localStorage.getItem("as_mute");
+      if (s) els.stem.selected = s;
+      if (q) {
+        els.quality.selected = q;
+        modelDefaulted = true; // préférence sauvegardée -> pas d'auto GPU/CPU
+      }
+      if (m !== null) els.mute.checked = m === "true";
+    } catch (e) {}
+  }
+
   function setProgress(pct) {
     els.progress.removeAttribute("indeterminate");
     els.progress.value = Math.max(0, Math.min(100, pct));
@@ -230,9 +252,12 @@
       : `Copie impossible — URL : ${TRIGGER_URL}`;
   });
 
-  // Force la sélection par défaut (l'attribut selected ne suffit pas toujours).
-  try { els.stem.selected = "both"; } catch (e) {}
-  try { els.quality.selected = "mel_roformer"; } catch (e) {}
+  // Sauvegarde à chaque changement + recharge les réglages sauvegardés
+  // (sinon défauts HTML "both"/"mel_roformer" + auto GPU/CPU dans checkBackend).
+  els.stem.addEventListener("change", saveSettings);
+  els.quality.addEventListener("change", saveSettings);
+  els.mute.addEventListener("change", saveSettings);
+  loadSettings();
 
   // Déclenchement externe (Stream Deck) : on relève le drapeau backend ~1x/s.
   setInterval(async () => {
