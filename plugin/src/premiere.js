@@ -142,6 +142,24 @@ const Premiere = (() => {
     throw new Error("ProjectItem importé introuvable : " + wavPath);
   }
 
+  /* Retrouve un clip audio par piste + temps de début (pour re-cibler frais). */
+  async function findClipAt(seq, trackIndex, startSec) {
+    const CLIP =
+      (ppro.Constants &&
+        ppro.Constants.TrackItemType &&
+        ppro.Constants.TrackItemType.CLIP) != null
+        ? ppro.Constants.TrackItemType.CLIP
+        : 1;
+    const tr = await seq.getAudioTrack(trackIndex);
+    const items = await tr.getTrackItems(CLIP, false);
+    for (const it of items) {
+      let st = null;
+      try { st = secs(await it.getStartTime()); } catch (e) {}
+      if (st != null && Math.abs(st - startSec) < 0.01) return it;
+    }
+    return null;
+  }
+
   /*
    * Importe TOUJOURS les deux stems, les place juste sous le clip sélectionné,
    * calés à `atTime`. Selon `keep`, mute la piste du stem non voulu :
@@ -183,15 +201,13 @@ const Premiere = (() => {
     }
     if (toPlace.length === 0) throw new Error("Aucun stem à placer.");
 
-    // Ré-acquiert TOUT frais juste avant la transaction (les réf UXP se périment
-    // pendant les imports async). Aucun await entre ici et executeTransaction.
+    // 1) PLACEMENT. Les réf ProjectItem se périment à chaque getItems() : on les
+    //    résout par ID en TOUT DERNIER, sans aucun await avant executeTransaction.
     const { seq } = await getActiveSequence();
+    const editor = await ppro.SequenceEditor.getEditor(seq);
     const root = await project.getRootItem();
     const byId = {};
-    for (const it of await root.getItems()) byId[it.getId()] = it;
-    const editor = await ppro.SequenceEditor.getEditor(seq);
-    const freshSel = muteOriginal ? await scanSelectedAudioClip(seq, false) : null;
-
+    for (const it of await root.getItems()) byId[it.getId()] = it; // dernier await
     const ok = project.executeTransaction((compound) => {
       for (const { key, id, audioTrackIndex } of toPlace) {
         const item = byId[id];
@@ -201,15 +217,29 @@ const Premiere = (() => {
           editor.createOverwriteItemAction(item, atTime, 0, audioTrackIndex)
         );
       }
-      if (muteOriginal && freshSel) {
-        compound.addAction(freshSel.clip.createSetDisabledAction(true));
-      }
     });
+    AppLog.info(`[place] placement ok=${ok} | ${toPlace.length} stem(s) placé(s)`);
 
-    AppLog.info(
-      `[place] transaction ok=${ok} | ${toPlace.length} stem(s) placé(s) | ` +
-        (muteOriginal && selected ? "clip d'origine muté" : "clip d'origine non muté")
-    );
+    // 2) MUTE DU CLIP D'ORIGINE — transaction séparée, clip retrouvé par position
+    //    (réf fraîche ; évite une sélection changée par le placement).
+    if (muteOriginal && selected) {
+      try {
+        const { seq: seqM } = await getActiveSequence();
+        const orig = await findClipAt(
+          seqM, selected.trackIndex, secs(selected.startTime)
+        );
+        if (orig) {
+          project.executeTransaction((c) =>
+            c.addAction(orig.createSetDisabledAction(true))
+          );
+          AppLog.info("[place] clip d'origine muté");
+        } else {
+          AppLog.warn("[place] clip d'origine introuvable pour le mute");
+        }
+      } catch (e) {
+        AppLog.warn(`[place] mute clip d'origine échoué : ${e}`);
+      }
+    }
 
     // Mute la piste du stem NON gardé (les deux sont toujours importés).
     const trackByKey = {};
