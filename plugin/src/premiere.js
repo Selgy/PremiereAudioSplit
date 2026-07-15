@@ -220,16 +220,22 @@ const Premiere = (() => {
       atTicks && ppro.TickTime && ppro.TickTime.createWithTicks
         ? ppro.TickTime.createWithTicks(atTicks)
         : atTime;
-    const ok = project.executeTransaction((compound) => {
-      for (const { key, id, audioTrackIndex } of toPlace) {
-        const item = byId[id];
-        if (!item) throw new Error(`ProjectItem introuvable (${key}, id=${id})`);
-        // (projectItem, time, videoTrackIndex, audioTrackIndex)
-        compound.addAction(
-          editor.createOverwriteItemAction(item, placeTime, 0, audioTrackIndex)
-        );
-      }
-    });
+    let ok = false;
+    const doPlace = () => {
+      ok = project.executeTransaction((compound) => {
+        for (const { key, id, audioTrackIndex } of toPlace) {
+          const item = byId[id];
+          if (!item) throw new Error(`ProjectItem introuvable (${key}, id=${id})`);
+          // (projectItem, time, videoTrackIndex, audioTrackIndex)
+          compound.addAction(
+            editor.createOverwriteItemAction(item, placeTime, 0, audioTrackIndex)
+          );
+        }
+      }, "Audio Split — placement des stems");
+    };
+    // lockedAccess fournit le contexte verrouillé qui rend les réf valides.
+    if (project.lockedAccess) project.lockedAccess(doPlace);
+    else doPlace();
     AppLog.info(`[place] placement ok=${ok} | ${toPlace.length} stem(s) placé(s)`);
 
     // 2) MUTE DU CLIP D'ORIGINE — transaction séparée, clip retrouvé par position
@@ -241,9 +247,13 @@ const Premiere = (() => {
           seqM, selected.trackIndex, secs(selected.startTime)
         );
         if (orig) {
-          project.executeTransaction((c) =>
-            c.addAction(orig.createSetDisabledAction(true))
-          );
+          const doMute = () =>
+            project.executeTransaction(
+              (c) => c.addAction(orig.createSetDisabledAction(true)),
+              "Audio Split — mute clip d'origine"
+            );
+          if (project.lockedAccess) project.lockedAccess(doMute);
+          else doMute();
           AppLog.info("[place] clip d'origine muté");
         } else {
           AppLog.warn("[place] clip d'origine introuvable pour le mute");
