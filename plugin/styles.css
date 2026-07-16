@@ -9,7 +9,6 @@
   --muted: #a3a1cf;
   --accent: #7c6cf6;
   --accent-2: #a855f7;
-  --grad: linear-gradient(90deg, #6d5efc, #a855f7);
   --green: #40dca6;
   --red: #ff6b6b;
   --amber: #ffb020;
@@ -21,7 +20,7 @@ body {
   margin: 0;
   font-family: "adobe-clean", system-ui, sans-serif;
   color: var(--text);
-  background: linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  background: #17153a;
   font-size: 13px;
 }
 
