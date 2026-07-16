@@ -3,6 +3,19 @@
  * Spectrum (gestion du focus). Doit être importé AVANT les composants SWC.
  */
 (function () {
+  const g = typeof globalThis !== "undefined" ? globalThis : window;
+
+  // Observers absents d'UXP : stubs no-op (les composants ne réagiront pas aux
+  // mutations/redimensionnements, mais le rendu initial fonctionne).
+  function NoopObserver() {}
+  NoopObserver.prototype.observe = function () {};
+  NoopObserver.prototype.unobserve = function () {};
+  NoopObserver.prototype.disconnect = function () {};
+  NoopObserver.prototype.takeRecords = function () { return []; };
+  ["MutationObserver", "ResizeObserver", "IntersectionObserver"].forEach((name) => {
+    if (typeof g[name] === "undefined") g[name] = NoopObserver;
+  });
+
   const doc = typeof document !== "undefined" ? document : null;
   if (!doc) return;
 
