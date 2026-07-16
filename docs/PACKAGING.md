@@ -29,26 +29,16 @@ télécharge les modèles à la demande. Build **CPU** par défaut (compatible p
 - **PyInstaller** : `packaging/AudioSplitEngine.spec`. Si un import manque au
   runtime, l'ajouter à `_pkgs` (collect_all).
 
-## 2. Plugin — build (SWC/React) puis `.ccx` via UDT
+## 2. Plugin — `.ccx` via UDT (manuel)
 
-L'UI est en **Spectrum Web Components** (React + webpack) → il faut **builder** avant.
-
-```bash
-cd plugin
-yarn install     # une fois
-yarn build       # produit plugin/dist/
-```
-
-Puis packaging via l'UXP Developer Tool (le `.ccx` ne se signe pas) :
+Le `.ccx` ne se signe pas (UXP), mais se package via l'UXP Developer Tool (GUI) :
 
 1. Ouvre **UXP Developer Tool**.
-2. Ajoute le plugin en pointant sur **`plugin/dist/manifest.json`** (le build, pas les sources).
+2. Ajoute le plugin (`plugin/manifest.json`) s'il n'y est pas.
 3. Menu **•••** de la ligne du plugin → **Package**.
 4. Renomme le fichier produit en **`AudioSplit.ccx`**.
 5. Attache-le à la [release GitHub](https://github.com/Selgy/PremiereAudioSplit/releases)
    du même tag.
-
-> Dev : `yarn watch` rebuild à chaque modif ; recharge ensuite dans UDT.
 
 > ID plugin : garder un ID **différent** de celui du Marketplace pour éviter les
 > conflits d'installation (voir `manifest.json`).

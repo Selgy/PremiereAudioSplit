@@ -3,7 +3,7 @@
  * UXP expose fetch / WebSocket dans le scope global (permissions réseau
  * déclarées dans manifest.json pour http://localhost:8765).
  */
-export const Backend = (() => {
+const Backend = (() => {
   // 127.0.0.1 (pas "localhost") : sur Windows, localhost peut résoudre vers
   // IPv6 (::1) alors que le backend écoute en IPv4 -> "Network request failed".
   const BASE = "http://127.0.0.1:8765";

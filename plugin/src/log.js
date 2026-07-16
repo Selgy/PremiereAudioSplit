@@ -1,5 +1,5 @@
 /* Petit utilitaire de log affiché dans le panneau + console UXP. */
-export const AppLog = (() => {
+const AppLog = (() => {
   function ts() {
     return new Date().toLocaleTimeString();
   }
