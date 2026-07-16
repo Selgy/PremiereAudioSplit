@@ -146,8 +146,8 @@
   }
 
   function setBackendState(state, label) {
-    els.statusEl.className = `pill pill--${state}`;
-    els.statusLabel.textContent = label;
+    if (els.statusEl) els.statusEl.className = `pill pill--${state}`;
+    if (els.statusLabel) els.statusLabel.textContent = label;
     backendReady = state === "ok";
     setDisabled(els.run, !backendReady);
   }
@@ -157,7 +157,7 @@
     if (busy) startPulse();
     else stopPulse();
     setDisabled(els.run, busy || !backendReady);
-    setDisabled(els.check, busy);
+    if (els.check) setDisabled(els.check, busy);
     if (text) els.statusText.textContent = text;
   }
 
@@ -267,7 +267,7 @@
   }
 
   /* ---------- Câblage ---------- */
-  els.check.addEventListener("click", () => { if (!isDisabled(els.check)) checkBackend(); });
+  if (els.check) els.check.addEventListener("click", () => { if (!isDisabled(els.check)) checkBackend(); });
   els.run.addEventListener("click", () => { if (!isDisabled(els.run)) run(); });
   els.install.addEventListener("click", () => { if (!isDisabled(els.install)) installEngine(); });
   els.installHelp.addEventListener("click", () => {
@@ -289,7 +289,7 @@
   });
 
   els.settingsToggle.addEventListener("click", () => els.settingsBody.classList.toggle("collapsed"));
-  els.logToggle.addEventListener("click", () => els.log.classList.toggle("collapsed"));
+  if (els.logToggle) els.logToggle.addEventListener("click", () => els.log.classList.toggle("collapsed"));
   els.copy.addEventListener("click", async () => {
     const ok = await copyToClipboard(TRIGGER_URL);
     els.statusText.textContent = ok ? "URL du déclencheur copiée ✅" : `URL : ${TRIGGER_URL}`;
