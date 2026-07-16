@@ -16,6 +16,12 @@
     if (typeof g[name] === "undefined") g[name] = NoopObserver;
   });
 
+  // Constructable stylesheets absents d'UXP. Stub SANS replace/replaceSync ->
+  // lit détecte "non supporté" et bascule sur l'injection de <style>.
+  if (typeof g.CSSStyleSheet === "undefined") {
+    g.CSSStyleSheet = function () {};
+  }
+
   const doc = typeof document !== "undefined" ? document : null;
   if (!doc) return;
 
