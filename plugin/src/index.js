@@ -1,3 +1,4 @@
+import "./uxp-polyfills.js";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Theme } from "@swc-react/theme";
