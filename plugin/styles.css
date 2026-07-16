@@ -41,6 +41,7 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 10px;
+  overflow: hidden;
   background: var(--grad);
   display: flex;
   align-items: center;
@@ -148,6 +149,7 @@ body {
 /* Buttons */
 .btn {
   border-radius: 13px;
+  overflow: hidden;
   padding: 14px;
   font-weight: 700;
   font-size: 14px;
