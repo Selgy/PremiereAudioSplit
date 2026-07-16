@@ -6,7 +6,7 @@
  * le disque, puis OUVRIR le dossier (openPath) pour que l'utilisateur
  * double-clique une fois. C'est le maximum possible dans les limites d'UXP.
  */
-const Installer = (() => {
+export const Installer = (() => {
   // ⚙️ CONFIG — dépôt GitHub hébergeant les releases du moteur.
   const REPO = "Selgy/PremiereAudioSplit";
 

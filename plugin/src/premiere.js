@@ -9,7 +9,9 @@
  *
  * Doc : https://developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/encodermanager/
  */
-const Premiere = (() => {
+import { AppLog } from "./log.js";
+
+export const Premiere = (() => {
   const ppro = require("premierepro");
   const uxp = require("uxp");
   const fs = uxp.storage.localFileSystem;

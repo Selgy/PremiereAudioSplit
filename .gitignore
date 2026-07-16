@@ -24,3 +24,7 @@ plugin/dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Node / build UI (SWC React)
+plugin/node_modules/
+plugin/dist/
