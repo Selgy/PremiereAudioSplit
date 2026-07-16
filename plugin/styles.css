@@ -42,7 +42,7 @@ body {
   height: 34px;
   border-radius: 10px;
   overflow: hidden;
-  background: var(--grad);
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -158,14 +158,14 @@ body {
   user-select: none;
 }
 .btn-sm { padding: 9px; font-size: 12.5px; border-radius: 10px; }
-.btn-cta { background: var(--grad); color: #fff; }
+.btn-cta { background: var(--accent); color: #fff; }
 .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
 .btn-ghost:hover { color: var(--text); }
 .is-disabled { opacity: 0.4; cursor: default; }
 
 /* Progress */
 .progress { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.progress .bar { height: 100%; width: 0; border-radius: 3px; background: var(--grad); }
+.progress .bar { height: 100%; width: 0; border-radius: 3px; background: var(--accent); }
 
 .status-text {
   color: var(--muted);
